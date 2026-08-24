@@ -1,0 +1,273 @@
+/* Salman Mac Cleaner — English localization. */
+
+/* App */
+"app.name" = "Salman Mac Cleaner";
+
+/* Navigation */
+"nav.dashboard" = "Dashboard";
+"nav.large_files" = "Large Files";
+"nav.duplicates" = "Duplicates";
+"nav.dev_caches" = "Developer Caches";
+"nav.startup_items" = "Startup Items";
+"nav.uninstaller" = "Uninstaller";
+"nav.settings" = "Settings";
+
+/* Sidebar */
+"sidebar.section.tools" = "Tools";
+"sidebar.section.manage" = "Manage";
+"search.sidebar.prompt" = "Search sections";
+"badge.read_only" = "Read-only";
+"badge.preview_first" = "Preview first";
+"badge.dry_run_on" = "Dry run ON";
+"badge.dry_run_off" = "Dry run OFF";
+"badge.dry_run_on.help" = "Preview mode is enabled. Nothing will be moved to the Trash until you turn this off in Settings.";
+"badge.dry_run_off.help" = "Preview mode is disabled. Cleanup moves selected items to the Trash — never permanently.";
+
+/* Toolbar */
+"toolbar.cancel.help" = "Cancel the current scan";
+
+/* Common */
+"common.cancel" = "Cancel";
+"common.clear" = "Clear";
+"common.sort" = "Sort";
+"common.sort_by" = "Sort by";
+"common.preview_cleanup" = "Preview Cleanup";
+"common.preview_cleanup.help" = "Show what would be moved to the Trash without touching anything.";
+"common.trash_selected" = "Move Selected to Trash";
+"common.trash_selected.help" = "Move only the selected items to the Trash. Nothing is permanently deleted.";
+"common.confirm.title" = "Confirm Cleanup";
+"common.confirm.message" = "%d item(s) selected, %@ total. Items are moved to the Trash only — you can always restore them. Continue?";
+"common.confirm.trash" = "Move to Trash";
+
+/* Search */
+"search.items.prompt" = "Search results";
+
+/* Sort orders */
+"sort.size_desc" = "Size (largest first)";
+"sort.size_asc" = "Size (smallest first)";
+"sort.name_asc" = "Name (A–Z)";
+"sort.date_desc" = "Date (newest first)";
+
+/* Selection */
+"selection.count" = "%lld selected";
+"selection.preview_only" = "Preview only — nothing will be moved";
+"selection.will_trash" = "Selected items will be moved to the Trash";
+
+/* Errors */
+"error.protected_location" = "Protected location:";
+"error.outside_home" = "Path is outside your home directory:";
+"error.missing_path" = "Path does not exist:";
+"error.ownership_mismatch" = "File is owned by uid %d, expected uid %d.";
+"error.other_user_file" = "File belongs to another user:";
+"error.suspicious_link" = "Suspicious or unsafe symbolic link:";
+"error.cross_volume" = "Path crosses onto a mounted volume:";
+"error.root_filesystem" = "The root filesystem cannot be scanned.";
+"error.not_regular_file" = "Not a regular file:";
+"error.traversal" = "Path traversal blocked:";
+"error.app_bundle" = "Application bundles are protected:";
+"error.hash_open" = "Could not open file for hashing:";
+"error.hash_unreadable" = "File is unreadable or too large:";
+"error.hash_cancelled" = "Hashing was cancelled.";
+"scan.error.no_roots" = "No folders selected. Choose at least one folder first.";
+"scan.error.cancelled" = "Scan cancelled.";
+"scan.error.permission" = "Permission denied while scanning:";
+"scan.cancelled" = "Cancelled";
+
+/* Cleanup engine */
+"cleanup.error.running" = "Cannot remove a running application:";
+"cleanup.error.unsafe" = "Item failed safety validation:";
+"cleanup.error.missing" = "Item no longer exists:";
+"cleanup.error.symlink" = "Symlinks are never moved:";
+"cleanup.error.bundle" = "Application bundles require the uninstaller flow:";
+"cleanup.error.kind" = "Unsupported item kind for cleanup:";
+"cleanup.error.protected_name" = "Protected file type, skipped:";
+
+/* Folder picker */
+"folder.picker.choose" = "Choose Folder";
+"folder.picker.message" = "Select a folder you want to scan. Nothing outside your home directory can be selected, and your personal folders (Desktop, Documents, Downloads, Pictures, Music, Movies) are only scanned when you explicitly choose them.";
+"folder.error.outside_home" = "Only folders inside your home directory can be scanned.";
+"folder.error.protected" = "That location is protected and cannot be scanned.";
+"folder.error.home_root" = "Choose a specific folder — scanning the entire home directory is too broad.";
+"folder.error.not_owned" = "That folder belongs to another user.";
+"folder.error.app_bundle" = "Application bundles cannot be scanned this way.";
+"folder.error.not_directory" = "Choose a folder, not a file.";
+
+/* Dashboard */
+"dashboard.storage.title" = "Storage";
+"dashboard.storage.overview" = "Storage Overview";
+"dashboard.storage.unavailable" = "Volume information is unavailable.";
+"dashboard.storage.free" = "free";
+"dashboard.storage.used" = "Used";
+"dashboard.storage.available" = "Available";
+"dashboard.storage.purgeable" = "Purgeable";
+"dashboard.storage.capacity" = "Capacity";
+"dashboard.storage.ring.label" = "Available storage";
+"dashboard.storage.volume_unknown" = "Startup Disk";
+"storage.volume_unknown" = "Startup Disk";
+"dashboard.refresh" = "Refresh";
+"dashboard.quick_actions.title" = "Quick Actions";
+"dashboard.quick_actions" = "Jump to a tool";
+"dashboard.action.large_files" = "Large Files";
+"dashboard.action.large_files.help" = "Find the largest files in folders you choose";
+"dashboard.action.duplicates" = "Duplicates";
+"dashboard.action.duplicates.help" = "Find exact duplicates with streaming SHA-256";
+"dashboard.action.dev_caches" = "Developer Caches";
+"dashboard.action.dev_caches.help" = "Preview Xcode, npm, Gradle and other dev caches";
+"dashboard.action.startup" = "Startup Items";
+"dashboard.action.startup.help" = "Inspect login items (read-only)";
+
+/* Large files */
+"largefiles.safety_note" = "Large File Finder scans only folders you explicitly select. Your Desktop, Documents, Downloads, Pictures, Music and Movies are never scanned by default. Cleanup moves only the items you tick to the Trash.";
+"largefiles.choose_folder" = "Choose Folder…";
+"largefiles.scan" = "Scan for Large Files";
+"largefiles.scanning" = "Scanning for large files…";
+"largefiles.cleaning" = "Moving selected large files…";
+"largefiles.picker.message" = "Choose a folder to scan for large files.";
+"largefiles.error.no_roots" = "Choose a folder to scan first.";
+"largefiles.prompt.title" = "Choose a folder to scan";
+"largefiles.prompt.message" = "Large File Finder only scans folders you select. Pick a folder such as a work or media directory — never your whole home.";
+"largefiles.empty.title" = "No large files found";
+"largefiles.empty.message" = "No files above your threshold were found in the selected folders. You can lower the threshold in Settings.";
+"largefiles.results.summary" = "%d files, %@";
+"largefiles.results.skipped" = "· %d skipped (protected, links or unreadable)";
+"largefiles.preview_done" = "Previewed %d large file(s) — nothing was moved.";
+"largefiles.clean_done" = "Moved %d large file(s) to the Trash.";
+
+/* Duplicates */
+"duplicates.safety_note" = "Duplicate Finder hashes files with a streaming SHA-256 in the folders you select. Groups keep one copy (the keeper) and offer the rest for cleanup — only the items you tick are moved to the Trash.";
+"duplicates.choose_folder" = "Choose Folder…";
+"duplicates.scan" = "Find Duplicates";
+"duplicates.scanning" = "Finding duplicates…";
+"duplicates.cleaning" = "Moving selected duplicates…";
+"duplicates.picker.message" = "Choose a folder to scan for duplicate files.";
+"duplicates.error.no_roots" = "Choose a folder to scan first.";
+"duplicates.error.hash" = "Could not hash:";
+"duplicates.phase.enumerate" = "Enumerating files…";
+"duplicates.phase.done" = "Duplicate analysis complete.";
+"duplicates.prompt.title" = "Choose a folder to scan";
+"duplicates.prompt.message" = "Duplicate Finder only scans folders you select. Files are compared by exact content hash — never by name alone.";
+"duplicates.empty.title" = "No duplicates found";
+"duplicates.empty.message" = "Every scanned file is unique. Try another folder.";
+"duplicates.results.summary" = "%d duplicate group(s), %@ reclaimable";
+"duplicates.keeper" = "Kept: %@";
+"duplicates.hardlink_note" = "Hard links collapsed";
+"duplicates.hardlink_note.help" = "Some candidates are hard links to the same data. They are collapsed so removing a link is never counted as reclaimable space.";
+"duplicates.preview_done" = "Previewed %d duplicate file(s) — nothing was moved.";
+"duplicates.clean_done" = "Moved %d duplicate file(s) to the Trash.";
+
+/* Developer caches */
+"devcaches.safety_note" = "Developer cache scanner previews caches from Xcode (DerivedData, Archives, Simulator), SwiftPM, CocoaPods, npm, Yarn, pnpm, Gradle, Maven, Cargo, pip and Homebrew. Entries are preview-first; only ticked entries are moved to the Trash.";
+"devcaches.scan" = "Scan Developer Caches";
+"devcaches.scanning" = "Scanning developer caches…";
+"devcaches.cleaning" = "Moving selected cache entries…";
+"devcaches.empty.title" = "No developer caches found";
+"devcaches.empty.message" = "No matching developer caches were found for the selected categories. If you just installed a tool, try again later.";
+"devcaches.prompt.title" = "Choose categories and scan";
+"devcaches.prompt.message" = "Pick the developer tools you use, then scan. Results are grouped by category with preview-first cleanup.";
+"devcaches.results.summary" = "%d entr(ies), %@";
+"devcaches.group_by" = "Group";
+"devcaches.group.category" = "By category";
+"devcaches.group.size" = "Flat list";
+"devcaches.preview_done" = "Previewed %d cache entr(ies) — nothing was moved.";
+"devcaches.clean_done" = "Moved %d cache entr(ies) to the Trash.";
+
+/* Dev categories */
+"devcat.derived_data" = "Xcode DerivedData";
+"devcat.archives" = "Xcode Archives";
+"devcat.simulator" = "Simulator Data";
+"devcat.note.derived_data" = "Rebuilding projects re-creates DerivedData automatically.";
+"devcat.note.archives" = "Archives are needed for App Store distribution history — review before cleanup.";
+"devcat.note.simulator" = "Removing simulator data resets simulated devices to a clean state.";
+"devcat.note.default" = "Tool caches re-download or rebuild automatically when needed.";
+
+/* Startup items */
+"startup.safety_note" = "Startup Manager is read-only in this version. It never modifies your login items or launch agents.";
+"startup.read_only.explanation" = "Startup Manager is strictly read-only in version 1. It lists what it can see without elevated privileges — login items, launch agents and launch daemons — but never adds, removes or disables anything. Managing startup items safely is planned for a later version.";
+"startup.refresh" = "Refresh";
+"startup.source_filter" = "Source";
+"startup.filter.all" = "All sources";
+"startup.empty.title" = "No startup items found";
+"startup.empty.message" = "Nothing was discovered in the standard locations. Some items may require permissions this app deliberately does not request.";
+"startup.source.login_items" = "Login Items";
+"startup.source.agents" = "Launch Agents";
+"startup.source.daemons" = "Launch Daemons";
+"startup.detail.agent" = "Launch agent in %@";
+"startup.detail.login_item" = "Login item (user session)";
+"startup.detail.read_only" = "System daemon — shown read-only";
+
+/* Uninstaller */
+"uninstaller.safety_note" = "Uninstaller only offers apps from your own ~/Applications folder with a confidence label. Running apps are blocked, and removal is trash-only with a second confirmation.";
+"uninstaller.refresh" = "Refresh";
+"uninstaller.count" = "%d app(s) found";
+"uninstaller.search.prompt" = "Search apps";
+"uninstaller.empty.title" = "No user apps found";
+"uninstaller.empty.message" = "No applications were found in ~/Applications. System-wide apps in /Applications are never offered for removal.";
+"uninstaller.running_warning" = "This app is running. Quit it before uninstalling — running apps are never removed.";
+"uninstaller.support_items" = "%d support file(s) found";
+"uninstaller.confirm.title" = "Uninstall Application";
+"uninstaller.confirm.message" = "Move %@ and its matched support files to the Trash? Nothing is permanently deleted.";
+"uninstaller.cleaning" = "Moving app to the Trash…";
+"uninstaller.preview_done" = "Previewed uninstall of %@ — nothing was moved.";
+"uninstaller.clean_done" = "%@ moved to the Trash.";
+
+/* Confidence */
+"confidence.high" = "High confidence";
+"confidence.medium" = "Medium confidence";
+"confidence.cautious" = "Caution";
+"confidence.help" = "Confidence is based on bundle identity, support files, ownership and running state.";
+
+/* Settings */
+"settings.safety.title" = "Safety";
+"settings.dryrun" = "Dry-run (preview) mode";
+"settings.dryrun.description" = "When enabled, every cleanup only previews. Nothing is moved to the Trash.";
+"settings.dryrun.on" = "Dry-run ON — cleanups preview only";
+"settings.dryrun.off" = "Dry-run OFF — cleanups move items to the Trash";
+"settings.confirm" = "Require confirmation";
+"settings.confirm.description" = "Always ask for a second confirmation before moving anything to the Trash.";
+"settings.scanning.title" = "Scanning";
+"settings.threshold" = "Large file threshold";
+"settings.depth" = "Maximum scan depth: %d levels";
+"settings.dev_cache_age" = "Dev cache minimum age: %d days";
+"settings.scan_on_launch" = "Refresh storage and dev cache estimates at launch";
+"settings.default_category" = "Default developer category";
+"settings.exclusions.title" = "Exclusions";
+"settings.exclusion.placeholder" = "Substring to exclude, e.g. node_modules";
+"settings.exclusion.add" = "Add";
+"settings.exclusion.empty" = "No exclusions. Any path containing these substrings will be skipped.";
+"settings.appearance.title" = "Appearance";
+"settings.appearance" = "Appearance";
+"settings.data.title" = "Local Data";
+"settings.history.count" = "%d cleanup event(s) stored locally";
+"settings.export.json" = "Export JSON…";
+"settings.export.csv" = "Export CSV…";
+"settings.history.clear" = "Clear History";
+"settings.reset" = "Reset All Settings";
+"settings.reset.help" = "Restore every setting to its safe default.";
+"settings.summary.threshold" = "Large files ≥ %.0f MB";
+"settings.summary.depth" = "depth %d";
+"settings.summary.exclusions" = "%d exclusion(s)";
+"appearance.system" = "System";
+"appearance.light" = "Light";
+"appearance.dark" = "Dark";
+
+/* History */
+"history.title" = "Cleanup History";
+"history.empty" = "No cleanup events yet. History is stored only on this Mac.";
+"history.column.date" = "Date";
+"history.column.action" = "Action";
+"history.column.items" = "Items";
+"history.column.bytes" = "Size";
+"history.column.mode" = "Mode";
+"history.mode.preview" = "Preview";
+"history.mode.trash" = "Trash";
+"history.export.json" = "Export JSON…";
+"history.export.csv" = "Export CSV…";
+"history.clear" = "Clear History";
+"history.action.large_files" = "Large files cleanup";
+"history.action.duplicates" = "Duplicate cleanup";
+"history.action.dev_caches" = "Developer cache cleanup";
+"history.action.uninstall" = "Application uninstall";
+
+/* Menu */
+"menu.dashboard" = "Dashboard";
+"menu.readme" = "Salman Mac Cleaner Help";
