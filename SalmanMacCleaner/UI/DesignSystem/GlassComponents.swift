@@ -113,7 +113,7 @@ public struct AuroraPrimaryButtonStyle: ButtonStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let label = configuration.label
             .font(.headline)
             .foregroundStyle(.white)
             .padding(.horizontal, 26)
@@ -137,6 +137,13 @@ public struct AuroraPrimaryButtonStyle: ButtonStyle {
             }
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            return AnyView(label.glassEffect(.regular))
+        }
+        #endif
+        return AnyView(label)
     }
 }
 

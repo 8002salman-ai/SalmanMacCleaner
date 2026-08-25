@@ -32,11 +32,38 @@ public final class DeepScanCoordinator: ObservableObject {
     public let indexStore: ScanIndexStore
 
     public init(indexStore: ScanIndexStore? = nil) {
-        self.indexStore = indexStore ?? (try! ScanIndexStore())
+        if let indexStore {
+            self.indexStore = indexStore
+        } else {
+            let primary = try? ScanIndexStore()
+            let fallbackPath = NSTemporaryDirectory() + "/SalmanMacCleaner-ScanIndex.sqlite"
+            let fallback = try? ScanIndexStore(path: fallbackPath)
+            self.indexStore = primary ?? fallback ?? Self.ephemeralStore()
+        }
+    }
+
+    /// Last-resort in-memory-safe store; never used unless the filesystem is
+    /// unwritable, in which case scans still work without persistence.
+    private static func ephemeralStore() -> ScanIndexStore {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SalmanMacCleaner-Ephemeral-\(UUID().uuidString).sqlite")
+        do {
+            return try ScanIndexStore(path: url.path)
+        } catch {
+            // Two distinct temporary locations; the second is under the home
+            // directory which must exist.
+            let homeURL = PathSafety.userHome
+                .appendingPathComponent(".SalmanMacCleaner-Ephemeral-\(UUID().uuidString).sqlite")
+            return try! ScanIndexStore(path: homeURL.path)
+        }
     }
 
     public convenience init(databasePath: String) {
-        self.init(indexStore: (try? ScanIndexStore(path: databasePath)) ?? (try! ScanIndexStore()))
+        let store = (try? ScanIndexStore(path: databasePath)) ?? {
+            let fallbackPath = NSTemporaryDirectory() + "/SalmanMacCleaner-ScanIndex.sqlite"
+            return try? ScanIndexStore(path: fallbackPath)
+        }()
+        self.init(indexStore: store)
     }
 
     // MARK: - Controls

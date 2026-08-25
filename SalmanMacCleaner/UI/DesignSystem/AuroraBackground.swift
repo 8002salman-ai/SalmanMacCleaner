@@ -145,6 +145,12 @@ public extension View {
     func auroraNativeGlass(_ style: GlassEffectContainer.Style = .regular) -> some View {
         glassEffect(style)
     }
+
+    /// Extends the Aurora background into the sidebar for the macOS 26
+    /// sidebar/content transition.
+    func auroraBackgroundExtension() -> some View {
+        backgroundExtensionEffect(.background)
+    }
 }
 #endif
 

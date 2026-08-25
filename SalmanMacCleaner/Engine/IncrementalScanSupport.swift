@@ -35,7 +35,14 @@ public enum IncrementalScanSupport {
         let callback: FSEventStreamCallback = { _, info, eventCount, eventPaths, eventFlags, eventIDs in
             guard let info, eventCount > 0 else { return }
             let collector = Unmanaged<ChangedDirectoryCollector>.fromOpaque(info).takeUnretainedValue()
-            guard let paths = unsafeBitCast(eventPaths, to: NSArray.self) as? [String] else { return }
+            let pathsArray = unsafeBitCast(eventPaths, to: NSArray.self)
+            var paths: [String] = []
+            for index in 0..<eventCount {
+                if let path = pathsArray.object(at: index) as? String {
+                    paths.append(path)
+                }
+            }
+            guard !paths.isEmpty else { return }
             collector.append(
                 paths: paths,
                 flags: Array(UnsafeBufferPointer(start: eventFlags, count: eventCount)),
