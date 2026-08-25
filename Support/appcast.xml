@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Salman Mac Cleaner — Sparkle 2 appcast template.
+
+  The release workflow regenerates this file with real EdDSA-signed entries
+  (Tools: Sparkle's `generate_appcast`) and pushes it to `main` so the stable
+  feed URL works:
+    https://raw.githubusercontent.com/8002salman-ai/SalmanMacCleaner/main/Support/appcast.xml
+
+  This template contains no releases; until a signed release exists, updates
+  are disabled in the app (see SparkleUpdaterController.isConfigured).
+-->
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
+     xmlns:dc="http://purl.org/dc/elements/1.1/"
+     version="2.0">
+  <channel>
+    <title>Salman Mac Cleaner</title>
+    <link>https://github.com/8002salman-ai/SalmanMacCleaner</link>
+    <description>Updates for Salman Mac Cleaner</description>
+    <language>en</language>
+    <!-- Populated by Tools/generate_appcast during the release workflow. -->
+  </channel>
+</rss>
