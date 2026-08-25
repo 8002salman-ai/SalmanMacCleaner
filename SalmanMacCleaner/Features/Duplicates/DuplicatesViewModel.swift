@@ -291,7 +291,7 @@ final class DuplicatesViewModel: ObservableObject {
                     // concurrent filesystem change cannot leave stale groups.
                     self.startScan(
                         settings: settings,
-                        coordinator: coordinator,
+                        coordinator: ScanCoordinator.shared,
                         activity: activity,
                         preserveCleanupReport: true
                     )

@@ -266,10 +266,10 @@ public enum DeveloperCacheScanner {
             report.deniedPaths.append(contentsOf: result.deniedPaths)
             report.truncatedPaths.append(contentsOf: result.truncatedPaths)
         }
-        report.entries.sort {
-            if $0.category == $1.category { return $0.size > $1.size }
-            return $0.category.rawValue < $1.category.rawValue
-        }
+        report.entries.sort(by: { lhs, rhs in
+            if lhs.category == rhs.category { return lhs.size > rhs.size }
+            return lhs.category < rhs.category
+        })
         progress(1, NSLocalizedString("devcaches.scan_complete", comment: ""))
         return report
     }

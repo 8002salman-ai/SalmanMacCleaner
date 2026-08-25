@@ -58,6 +58,8 @@ public struct CleanupResult: Equatable {
     public var selectedBytes: Int64
     /// Legacy total: moved bytes in real mode, previewed bytes in preview mode.
     public var totalBytes: Int64
+    /// Unique bytes represented by the items accepted during a preview run.
+    public var previewedBytes: Int64
     /// Whether this result came from a read-only preview run.
     public var previewOnly: Bool
     /// Whether cancellation stopped the run before all selected items were processed.
@@ -75,6 +77,7 @@ public struct CleanupResult: Equatable {
                 candidateBytes: Int64 = 0,
                 selectedBytes: Int64 = 0,
                 totalBytes: Int64 = 0,
+                previewedBytes: Int64 = 0,
                 previewOnly: Bool = false,
                 cancelled: Bool = false,
                 movedBytes: Int64 = 0,
@@ -89,6 +92,7 @@ public struct CleanupResult: Equatable {
         self.candidateBytes = candidateBytes
         self.selectedBytes = selectedBytes
         self.totalBytes = totalBytes
+        self.previewedBytes = previewedBytes
         self.previewOnly = previewOnly
         self.cancelled = cancelled
         self.movedBytes = movedBytes
@@ -152,7 +156,7 @@ public final class CleanupEngine: ObservableObject {
 
     /// Validate a single candidate right before trashing. Returns the accepted
     /// path or throws the first blocking reason.
-    public static func revalidate(item: CleanupItem,
+    public nonisolated static func revalidate(item: CleanupItem,
                                   root: String,
                                   allowBundles: Bool,
                                   allowedRoots: [String] = []) throws -> CleanupItem {
@@ -273,8 +277,9 @@ public final class CleanupEngine: ObservableObject {
             result.movedBytes = breakdown.movedBytes
             result.failedBytes = breakdown.failedBytes
             result.remainingBytes = breakdown.remainingBytes
+            result.previewedBytes = CleanupAccounting.uniqueBytes(for: result.previewed)
             result.totalBytes = previewOnly
-                ? CleanupAccounting.uniqueBytes(for: result.previewed)
+                ? result.previewedBytes
                 : breakdown.movedBytes
         }
 
@@ -314,6 +319,7 @@ public final class CleanupEngine: ObservableObject {
                         device: safeItem.device,
                         inode: safeItem.inode
                     ))
+                    result.previewedBytes = CleanupAccounting.uniqueBytes(for: result.previewed)
                     result.totalBytes = CleanupAccounting.adding(result.totalBytes, currentSize)
                 } else {
                     let destinationPath = try await Task.detached(priority: .userInitiated) {

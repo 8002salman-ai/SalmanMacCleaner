@@ -345,7 +345,7 @@ extension ConfirmationDialogConfig {
             detailMessage = "\n\n" + NSLocalizedString("common.confirm.details_header", comment: "")
                 + "\n" + visibleDetails.joined(separator: "\n") + suffix
         }
-        ConfirmationDialogConfig(
+        return ConfirmationDialogConfig(
             title: NSLocalizedString(
                 previewOnly ? "common.confirm.preview_title" : "common.confirm.title",
                 comment: ""

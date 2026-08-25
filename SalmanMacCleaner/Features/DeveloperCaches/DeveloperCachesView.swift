@@ -106,7 +106,7 @@ struct DeveloperCachesView: View {
                                     .lineLimit(1)
                                 Text(statusText(for: descriptor))
                                     .font(.caption2)
-                                    .foregroundStyle(descriptor.detected ? AuroraPalette.success : .tertiary)
+                                    .foregroundStyle(descriptor.detected ? AuroraPalette.success : Color.white.opacity(0.55))
                             }
                             Spacer(minLength: 0)
                         }
