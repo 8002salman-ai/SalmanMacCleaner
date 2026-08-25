@@ -76,6 +76,7 @@ public final class SpaceLensViewModel: ObservableObject {
     @Published public var searchText = ""
     @Published public var sortOption: SpaceLensSortOption = .sizeDescending
     @Published public var targets: [SpaceLensTargetRoot] = []
+    @Published public var errorMessage: String?
 
     private var scanTask: Task<Void, Never>?
     private var scanToken = UUID()
@@ -130,6 +131,7 @@ public final class SpaceLensViewModel: ObservableObject {
     }
 
     public func selectTarget(_ target: SpaceLensTargetRoot) {
+        errorMessage = nil
         scanTask?.cancel()
         scanTask = nil
         isScanning = false
@@ -162,12 +164,19 @@ public final class SpaceLensViewModel: ObservableObject {
     }
 
     public func addCustomTarget(url: URL) {
-        let path = url.standardizedFileURL.path
-        if !targets.contains(where: { $0.path == path }) {
-            targets.append(SpaceLensTargetRoot(name: url.lastPathComponent, path: path, icon: "folder.fill"))
+        switch FolderPicker.validatePickedFolder(url) {
+        case .failure(let error):
+            errorMessage = error.localizedDescription
+            return
+        case .success(let validated):
+            errorMessage = nil
+            let path = validated.path
+            if !targets.contains(where: { $0.path == path }) {
+                targets.append(SpaceLensTargetRoot(name: validated.lastPathComponent, path: path, icon: "folder.fill"))
+            }
+            selectedTargetPath = path
+            scan(targetPath: path)
         }
-        selectedTargetPath = path
-        scan(targetPath: path)
     }
 
     public func startCurrentScan() {
@@ -175,6 +184,7 @@ public final class SpaceLensViewModel: ObservableObject {
     }
 
     public func scan(targetPath: String) {
+        errorMessage = nil
         scanTask?.cancel()
         let token = UUID()
         scanToken = token
@@ -272,14 +282,31 @@ public final class SpaceLensViewModel: ObservableObject {
                 return current
             }
             for child in current.children {
-                if let found = search(child, targetID: targetID) {
-                    return found
-                }
+                if let found = search(child, targetID: targetID) { return found }
             }
             return nil
         }
         guard let root else { return nil }
         return search(root, targetID: node.id)
+    }
+
+    public func focusOnRoot() {
+        if let root {
+            focus = root
+            historyStack = []
+            forwardStack = []
+        }
+    }
+
+    private func chooseCustomFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.message = NSLocalizedString("space_lens.choose_folder.message", comment: "")
+        if panel.runModal() == .OK, let url = panel.url {
+            addCustomTarget(url: url)
+        }
     }
 }
 
@@ -293,6 +320,11 @@ public struct SpaceLensView: View {
     public var body: some View {
         VStack(spacing: 0) {
             targetSelectorBar
+            if let error = model.errorMessage {
+                PermissionBannerView(message: error, systemImage: "exclamationmark.triangle.fill")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+            }
             Divider().overlay(Color.white.opacity(0.08))
 
             if model.isScanning {

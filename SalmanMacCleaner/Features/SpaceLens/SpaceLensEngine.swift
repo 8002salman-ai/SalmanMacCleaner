@@ -183,7 +183,8 @@ public enum SpaceLensEngine {
         let rootPath = root.standardizedFileURL.path
 
         guard FileManager.default.fileExists(atPath: rootPath),
-              PathSafety.kind(of: rootPath) == .directory else {
+              PathSafety.kind(of: rootPath) == .directory,
+              let rootDevice = PathSafety.deviceID(of: rootPath) else {
             let denied = SpaceLensNode(
                 name: root.lastPathComponent.isEmpty ? rootPath : root.lastPathComponent,
                 path: rootPath,
@@ -209,6 +210,7 @@ public enum SpaceLensEngine {
             url: URL(fileURLWithPath: rootPath, isDirectory: true),
             depth: 0,
             maxDepth: maxDepth,
+            expectedDevice: rootDevice,
             includeHidden: includeHidden,
             includePackageContents: includePackageContents,
             metrics: metrics,
@@ -242,6 +244,7 @@ public enum SpaceLensEngine {
         url: URL,
         depth: Int,
         maxDepth: Int,
+        expectedDevice: dev_t,
         includeHidden: Bool,
         includePackageContents: Bool,
         metrics: ScanMetrics,
@@ -250,6 +253,18 @@ public enum SpaceLensEngine {
     ) -> SpaceLensNode {
         let path = url.standardizedFileURL.path
         let isSystem = isSystemPath(path)
+        guard PathSafety.deviceID(of: path) == expectedDevice else {
+            metrics.inaccessibleCount += 1
+            return SpaceLensNode(
+                name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
+                path: path,
+                allocatedBytes: 0,
+                isDirectory: true,
+                isSystemProtected: isSystem,
+                isDenied: true,
+                isTruncated: true
+            )
+        }
         metrics.directoriesVisited += 1
         guard metrics.directoriesVisited <= 100_000 else {
             metrics.truncatedCount += 1
@@ -364,6 +379,7 @@ public enum SpaceLensEngine {
                         url: entry,
                         depth: depth + 1,
                         maxDepth: maxDepth,
+                        expectedDevice: expectedDevice,
                         includeHidden: includeHidden,
                         includePackageContents: true,
                         metrics: metrics,
@@ -384,6 +400,7 @@ public enum SpaceLensEngine {
                     url: entry,
                     depth: depth + 1,
                     maxDepth: maxDepth,
+                    expectedDevice: expectedDevice,
                     includeHidden: includeHidden,
                     includePackageContents: includePackageContents,
                     metrics: metrics,

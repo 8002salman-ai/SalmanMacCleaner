@@ -125,14 +125,14 @@ public struct FileInventoryScanner {
                 continue
             }
 
-            var enumerationErrors = 0
+            let enumerationErrors = TraversalIssueCounter()
             guard let enumerator = FileManager.default.enumerator(
                 at: URL(fileURLWithPath: rootPath, isDirectory: true),
                 includingPropertiesForKeys: MetadataCollector.prefetchedKeys,
                 options: [],
                 errorHandler: { _, _ in
                     // Permission errors are counted; the scan continues.
-                    enumerationErrors += 1
+                    enumerationErrors.record()
                     return true
                 }
             ) else {
@@ -252,7 +252,7 @@ public struct FileInventoryScanner {
             }
             totals.merge(rootCounts)
             rootTotals.merge(rootCounts)
-            rootTotals.errors += enumerationErrors
+            rootTotals.errors += enumerationErrors.count
             counts(totals, rootPath)
 
             let outcome: RootOutcome = rootTotals.denied > 0

@@ -36,6 +36,9 @@ struct SmartCareView: View {
                 )
             }
         }
+        .onChange(of: appState.cancellationGeneration) { _ in
+            if isChecking { cancelHealthCheck() }
+        }
         .onDisappear {
             healthToken = UUID()
             healthTask?.cancel()

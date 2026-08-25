@@ -941,6 +941,7 @@
 "space_lens.sort.name_asc" = "Name (A-Z)";
 "space_lens.sort.name_desc" = "Name (Z-A)";
 "space_lens.choose_folder" = "Choose Folder…";
+"space_lens.choose_folder.message" = "Choose a user-owned folder to measure. No files will be changed.";
 "space_lens.select_folder" = "Select a folder for Space Lens";
 "space_lens.empty_selection" = "No target selected";
 "space_lens.empty_folder" = "This folder is empty or contains no readable files.";

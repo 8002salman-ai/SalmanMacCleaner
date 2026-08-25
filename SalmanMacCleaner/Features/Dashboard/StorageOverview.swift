@@ -99,13 +99,13 @@ public enum StorageOverview {
     ) -> DirectoryMeasurement {
         guard depth >= 0 else { return DirectoryMeasurement(truncated: true) }
         let keys: [URLResourceKey] = [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .fileAllocatedSizeKey]
-        var inaccessible = 0
+        let inaccessible = TraversalIssueCounter()
         guard let enumerator = FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: keys,
             options: [.skipsHiddenFiles],
             errorHandler: { _, _ in
-                inaccessible += 1
+                inaccessible.record()
                 return true
             }
         ) else {
@@ -126,7 +126,7 @@ public enum StorageOverview {
                 break
             }
             guard let values = try? fileURL.resourceValues(forKeys: Set(keys)) else {
-                inaccessible += 1
+                inaccessible.record()
                 continue
             }
             if values.isSymbolicLink == true { continue }
@@ -144,7 +144,7 @@ public enum StorageOverview {
         return DirectoryMeasurement(
             bytes: total,
             entriesVisited: entriesVisited,
-            inaccessibleEntries: inaccessible,
+            inaccessibleEntries: inaccessible.count,
             truncated: truncated
         )
     }

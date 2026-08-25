@@ -13,8 +13,8 @@
 //
 //  Double-counting prevention:
 //  - Canonicalizes and deduplicates selection paths.
-//  - Prunes descendants: if a parent directory is selected, all descendants
-//    under that directory are removed from the plan and selection.
+//  - Prunes descendants: if a parent directory is selected, descendants are
+//    removed from the executable plan and reported as explicit skips.
 //  - Deduplicates identical file identities (device + inode).
 //
 
@@ -161,14 +161,24 @@ public enum CleanupPlanBuilder {
 
         // 2. Prune descendants if parent directory is selected. A descendant
         // is part of the parent's one physical cleanup selection, not a
-        // second executable item or a skipped failure.
+        // second executable item; it is reported as an explicit coverage skip.
         let nonDescendantPaths = pruneDescendantPaths(canonicalSelection.map { $0.path })
         let prunedSelection = canonicalSelection.filter { nonDescendantPaths.contains($0.path) }
 
         var items: [PlannedCleanupItem] = []
         var rejections: [(path: String, reason: String, bytes: Int64)] = []
+        // A selected child is not silently dropped when its parent is also
+        // selected. It is an explicit skipped bucket, so selected-count
+        // reconciliation remains faithful to the user's actual selection.
+        for item in canonicalSelection where !nonDescendantPaths.contains(item.path) {
+            rejections.append((
+                item.path,
+                NSLocalizedString("plan.skip.parent_selected", comment: "") + " \(item.path)",
+                0
+            ))
+        }
         var seenInodes = Set<String>()
-        let selectedCount = prunedSelection.count
+        let selectedCount = canonicalSelection.count
         var selectedBytes: Int64 = 0
 
         for item in prunedSelection {

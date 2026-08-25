@@ -45,6 +45,16 @@ struct DeveloperCachesView: View {
         .navigationTitle(SidebarModule.developerCaches.title)
         .toolbar { toolbarContent }
         .safeAreaInset(edge: .bottom) { actionBar }
+        .onChange(of: appState.cancellationGeneration) { _ in
+            if viewModel.isScanning {
+                viewModel.cancelScan(coordinator: ScanCoordinator.shared, activity: appState)
+            }
+        }
+        .onDisappear {
+            if viewModel.isScanning {
+                viewModel.cancelScan(coordinator: ScanCoordinator.shared, activity: appState)
+            }
+        }
     }
 
     private var header: some View {

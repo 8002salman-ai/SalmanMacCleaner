@@ -218,13 +218,13 @@ struct LargeOldFilesView: View {
         let task = Task.detached(priority: .userInitiated) {
             var found: [ScannedItem] = []
             var entriesVisited = 0
-            var partial = false
+            let coverage = TraversalIssueCounter()
             let enumerator = FileManager.default.enumerator(
                 at: url,
                 includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey],
                 options: [.skipsHiddenFiles],
                 errorHandler: { _, _ in
-                    partial = true
+                    coverage.record()
                     return true
                 }
             )
@@ -240,20 +240,20 @@ struct LargeOldFilesView: View {
             for case let entry as URL in enumerator {
                 entriesVisited += 1
                 if entriesVisited > 250_000 {
-                    partial = true
+                    coverage.record()
                     break
                 }
                 guard !Task.isCancelled else {
-                    partial = true
+                    coverage.record()
                     break
                 }
                 if enumerator.level > 64 {
-                    partial = true
+                    coverage.record()
                     enumerator.skipDescendants()
                     continue
                 }
                 guard let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey]) else {
-                    partial = true
+                    coverage.record()
                     continue
                 }
                 if values.isSymbolicLink == true { continue }
@@ -261,7 +261,7 @@ struct LargeOldFilesView: View {
                 guard let modified = values.contentModificationDate, modified < cutoff else { continue }
                 let safe = PathSafety.validate(path: entry.path, root: root, expectedDevice: dev_t(device), purpose: .scan, allowSymlink: false)
                 guard case .success(let validated) = safe else {
-                    partial = true
+                    coverage.record()
                     continue
                 }
                 let identity = Crypto.inode(of: validated.canonical)
@@ -278,7 +278,7 @@ struct LargeOldFilesView: View {
             await MainActor.run {
                 guard scanToken == token else { return }
                 items = wasCancelled ? [] : Array(found.prefix(800))
-                scanWasPartial = partial || wasCancelled
+                scanWasPartial = (coverage.count > 0) || wasCancelled
                 isScanning = false
                 scanTask = nil
             }

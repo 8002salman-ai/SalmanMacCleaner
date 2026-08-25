@@ -128,6 +128,9 @@ struct LargeFilesView: View {
                 viewModel.addRoot(url)
             }
         }
+        .onDisappear {
+            if viewModel.isScanning { appState.cancelCurrentScan() }
+        }
     }
 
     private func chooseFolder() {

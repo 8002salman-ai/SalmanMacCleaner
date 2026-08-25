@@ -263,7 +263,7 @@ final class DeveloperCachesViewModel: ObservableObject {
                 // list must reflect what is still present, not a stale scan.
                 startScan(
                     settings: settings,
-                    coordinator: coordinator,
+                    coordinator: ScanCoordinator.shared,
                     activity: activity,
                     preserveCleanupReport: true
                 )

@@ -334,6 +334,33 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
         XCTAssertFalse(result.reasons().isEmpty, "skip reasons must be reported")
     }
 
+    func testParentAndDescendantSelectionsRemainInExactSkippedAccounting() throws {
+        let folder = sandbox.appendingPathComponent("caches/tree", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let child = makeFile("caches/tree/child.cache")
+        guard let folderRecord = MetadataCollector.collect(url: folder),
+              let childRecord = MetadataCollector.collect(url: child) else {
+            return XCTFail("parent and child fixtures must be readable")
+        }
+
+        let draft = CleanupPlanBuilder.buildDetailed(
+            selection: [
+                ScannedItem(path: folder.path, size: folderRecord.allocatedSize, isDirectory: true),
+                ScannedItem(path: child.path, size: childRecord.allocatedSize)
+            ],
+            records: [folderRecord, childRecord],
+            containmentRoot: sandbox.path,
+            previewOnly: true,
+            libraryRoots: [sandbox.path]
+        )
+
+        XCTAssertEqual(draft.selectedCount, 2)
+        XCTAssertEqual(draft.plan.items.count + draft.rejections.count, 2)
+        XCTAssertEqual(draft.rejections.count, 1)
+        XCTAssertTrue(draft.reconciles)
+        XCTAssertTrue(draft.rejections.first?.reason.contains(child.path) == true)
+    }
+
     // MARK: - 4. Safety guards with exact reasons
 
     func testProtectedItemsAreRefusedAndNeverReachTheMover() async throws {
@@ -817,7 +844,8 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
 
         XCTAssertEqual(draft.plan.items.count, 1, "Only the parent directory must be planned")
         XCTAssertEqual(draft.plan.items.first?.path, parentDir.standardizedFileURL.path)
-        XCTAssertEqual(draft.selectedCount, 1, "Pruned selection count must be 1")
+        XCTAssertEqual(draft.selectedCount, 4, "Original selections must remain visible in accounting")
+        XCTAssertEqual(draft.rejections.count, 3, "Covered descendants must be explicitly reported as skipped")
         XCTAssertTrue(draft.reconciles)
 
         let mover = MockTrashMover()
@@ -833,7 +861,7 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
         XCTAssertEqual(mover.calls.count, 1, "Only the parent directory moves to Trash")
         XCTAssertEqual(result.moved.count, 1)
         XCTAssertEqual(result.failedCount, 0)
-        XCTAssertEqual(result.skippedCount, 0)
+        XCTAssertEqual(result.skippedCount, 3)
         XCTAssertTrue(result.reconciles)
     }
 

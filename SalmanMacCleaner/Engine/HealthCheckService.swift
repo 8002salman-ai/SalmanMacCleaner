@@ -153,7 +153,7 @@ public enum HealthCheckService {
             let result: HealthCheckFactor
             switch factor {
             case .storage:
-                result = try storageFactor(isCancelled: isCancelled)
+                result = try storageFactor(isCancelled: isCancelled, coverageLimited: &coverageLimited)
             case .trash:
                 result = try trashFactor(isCancelled: isCancelled, coverageLimited: &coverageLimited)
             case .caches:
@@ -198,8 +198,10 @@ public enum HealthCheckService {
         ))
     }
 
-    private static func storageFactor(isCancelled: @escaping () -> Bool) throws -> HealthCheckFactor {
+    private static func storageFactor(isCancelled: @escaping () -> Bool,
+                                      coverageLimited: inout Bool) throws -> HealthCheckFactor {
         guard let snapshot = StorageOverview.snapshot(isCancelled: isCancelled), snapshot.totalCapacity > 0 else {
+            coverageLimited = true
             try checkCancellation(isCancelled)
             return HealthCheckFactor(
                 id: .storage,

@@ -139,6 +139,9 @@ struct DuplicatesView: View {
                 viewModel.addRoot(url)
             }
         }
+        .onDisappear {
+            if viewModel.isScanning { appState.cancelCurrentScan() }
+        }
     }
 
     @ViewBuilder

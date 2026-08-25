@@ -18,6 +18,26 @@
 
 import Foundation
 
+/// Thread-safe counter for FileManager's escaping traversal callbacks. The
+/// callback is treated as independently executing by strict concurrency, even
+/// though the surrounding traversal consumes it synchronously.
+final class TraversalIssueCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func record() {
+        lock.lock()
+        if value < Int.max { value += 1 }
+        lock.unlock()
+    }
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+}
+
 public enum TraversalDecision: Equatable {
     case include
     case skip(reason: TraversalSkipReason)
