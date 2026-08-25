@@ -352,3 +352,55 @@ final class DuplicatePipelineTests: XCTestCase {
         XCTAssertEqual(hashA, hashB)
     }
 }
+
+final class CleanupAccountingTests: XCTestCase {
+    func testNestedAndDuplicatePathsAreCountedOnce() {
+        let parent = ScannedItem(path: "/Users/test/Library/Caches/parent", size: 100, isDirectory: true)
+        let child = ScannedItem(path: "/Users/test/Library/Caches/parent/child", size: 50)
+        let duplicate = ScannedItem(path: "/Users/test/Library/Caches/./parent", size: 100, isDirectory: true)
+        XCTAssertEqual(CleanupAccounting.uniqueBytes(for: [parent, child, duplicate]), 100)
+    }
+
+    func testHardLinkIdentityIsCountedOnce() {
+        let first = FileRecord(path: "/Users/test/a.cache", parent: "/Users/test", name: "a.cache", isDirectory: false, logicalSize: 40, allocatedSize: 40, device: 1, inode: 99)
+        let second = FileRecord(path: "/Users/test/b.cache", parent: "/Users/test", name: "b.cache", isDirectory: false, logicalSize: 40, allocatedSize: 40, device: 1, inode: 99)
+        XCTAssertEqual(CleanupAccounting.uniqueBytes(for: [first, second]), 40)
+    }
+
+    func testReconciliationCountsOnlyActuallyMovedBytes() throws {
+        let root = PathSafety.userHome.appendingPathComponent(".SalmanMacCleaner-accounting-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let moved = root.appendingPathComponent("moved.cache")
+        let failed = root.appendingPathComponent("failed.cache")
+        FileManager.default.createFile(atPath: moved.path, contents: Data(repeating: 1, count: 10))
+        FileManager.default.createFile(atPath: failed.path, contents: Data(repeating: 1, count: 20))
+        let items = [CleanupItem(path: moved.path, size: 10), CleanupItem(path: failed.path, size: 20)]
+        try FileManager.default.removeItem(at: moved)
+        let breakdown = CleanupAccounting.reconcile(selected: items, moved: [moved.path], failed: [(failed.path, "refused")])
+        XCTAssertEqual(breakdown.selectedBytes, 30)
+        XCTAssertEqual(breakdown.movedBytes, 10)
+        XCTAssertEqual(breakdown.failedBytes, 20)
+        XCTAssertEqual(breakdown.remainingBytes, 20)
+    }
+}
+
+final class HealthCheckModelTests: XCTestCase {
+    func testHealthResultAggregatesMeasuredFactorStatuses() {
+        let result = HealthCheckResult(
+            factors: [
+                HealthCheckFactor(id: .storage, status: .good, summary: "measured", evidence: "volume"),
+                HealthCheckFactor(id: .trash, status: .attention, summary: "review", evidence: "Trash")
+            ],
+            coverage: .partial,
+            coverageMessage: "limited"
+        )
+        XCTAssertEqual(result.overallStatus, .attention)
+        XCTAssertEqual(result.attentionCount, 1)
+        XCTAssertEqual(HealthCheckFactorID.trash.destination, .trashBins)
+    }
+
+    func testReadOnlyHealthFactorsHaveModuleDestinations() {
+        XCTAssertEqual(Set(HealthCheckFactorID.allCases.compactMap(\.destination)).count, HealthCheckFactorID.allCases.count)
+    }
+}

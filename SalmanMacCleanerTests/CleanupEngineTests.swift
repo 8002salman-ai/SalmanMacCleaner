@@ -172,6 +172,8 @@ final class CleanupEngineTests: XCTestCase {
         )
         XCTAssertLessThan(result.previewed.count, files.count,
                           "Cancellation must stop the loop early")
+        XCTAssertTrue(result.cancelled)
+        XCTAssertEqual(result.notProcessed, files.count - result.previewed.count)
     }
 
     @MainActor

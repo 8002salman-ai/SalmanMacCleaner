@@ -98,6 +98,24 @@ final class DuplicateFinderTests: XCTestCase {
         XCTAssertEqual(duplicateGroups.first?.reclaimableBytes, Int64("duplicate content here".count))
     }
 
+    func testScanReportMarksDepthLimitedCoverage() throws {
+        let nested = sandbox.appendingPathComponent("nested/deeper", isDirectory: true)
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        _ = makeFile("nested/deeper/file.txt", contents: "depth limited payload")
+
+        let report = try DuplicateFinder.scanReport(
+            roots: [sandbox],
+            maxDepth: 0,
+            minimumSize: 1,
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertTrue(report.isPartial, "Unvisited child directories must be reported as partial coverage")
+        XCTAssertTrue(report.truncated)
+        XCTAssertGreaterThanOrEqual(report.directoriesVisited, 1)
+    }
+
     func testDuplicateGroupsHaveKeeperAndRemovableFiles() throws {
         _ = makeFile("a.txt", contents: "keeper content 123")
         _ = makeFile("b.txt", contents: "keeper content 123")

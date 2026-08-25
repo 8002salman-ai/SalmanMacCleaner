@@ -1033,6 +1033,22 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
         }
     }
 
+    func testSpaceLensCacheSeparatesHiddenAndPackageOptions() {
+        let path = "/Users/test/.space-lens-cache-\(UUID().uuidString)"
+        let plain = SpaceLensNode(name: "plain", path: path, allocatedBytes: 10, isDirectory: true)
+        let expanded = SpaceLensNode(name: "expanded", path: path, allocatedBytes: 20, isDirectory: true)
+        let cache = SpaceLensCache.shared
+        cache.invalidate(path: path)
+        cache.setNode(plain, for: path, includeHidden: false, includePackageContents: false)
+        cache.setNode(expanded, for: path, includeHidden: true, includePackageContents: true)
+
+        XCTAssertEqual(cache.node(for: path, includeHidden: false, includePackageContents: false)?.totalBytes, 10)
+        XCTAssertEqual(cache.node(for: path, includeHidden: true, includePackageContents: true)?.totalBytes, 20)
+        cache.invalidate(path: path)
+        XCTAssertNil(cache.node(for: path, includeHidden: false, includePackageContents: false))
+        XCTAssertNil(cache.node(for: path, includeHidden: true, includePackageContents: true))
+    }
+
     func testSystemProtectedPathsAreNeverPlannedForRemoval() {
         XCTAssertTrue(SpaceLensEngine.isSystemPath("/System"))
         XCTAssertTrue(SpaceLensEngine.isSystemPath("/usr/bin"))
