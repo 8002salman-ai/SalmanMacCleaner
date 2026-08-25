@@ -24,7 +24,7 @@ final class ScanIndexStoreTests: XCTestCase {
     override func tearDown() {
         if let dbPath {
             try? FileManager.default.removeItem(atPath: dbPath)
-            try? FileManager.default.removeItem(at: URL(fileURLWithPath: dbPath).deletingLastPathComponent().path)
+            try? FileManager.default.removeItem(atPath: URL(fileURLWithPath: dbPath).deletingLastPathComponent().path)
         }
         super.tearDown()
     }
@@ -71,7 +71,8 @@ final class ScanIndexStoreTests: XCTestCase {
             provenance: .full, itemsScanned: 1, bytesIndexed: 42
         )
         try await store.completeScan(scanID: scanID, outcome: outcome, counts: InventoryCounts(), coverage: outcome.coverage)
-        XCTAssertNil(await store.latestResumableScan(mode: .quick))
+        let latest = await store.latestResumableScan(mode: .quick)
+        XCTAssertNil(latest)
     }
 
     func testResumableScanRoundTrip() async throws {
@@ -86,9 +87,11 @@ final class ScanIndexStoreTests: XCTestCase {
 
     func testVolumeEventStatePersistence() async throws {
         let store = try ScanIndexStore(path: dbPath)
-        XCTAssertNil(await store.lastEventID(forMountPoint: "/"))
+        let initialEventID = await store.lastEventID(forMountPoint: "/")
+        XCTAssertNil(initialEventID)
         try await store.saveEventState(mountPoint: "/", lastEventID: 12345)
-        XCTAssertEqual(await store.lastEventID(forMountPoint: "/"), 12345)
+        let savedEventID = await store.lastEventID(forMountPoint: "/")
+        XCTAssertEqual(savedEventID, 12345)
     }
 
     func testSchemaVersionPersistsAcrossReopen() async throws {
@@ -293,6 +296,7 @@ final class VersionComparatorTests: XCTestCase {
     }
 }
 
+@MainActor
 final class UpdateConfigurationTests: XCTestCase {
 
     func testDevBuildIsNotConfigured() {

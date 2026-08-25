@@ -240,7 +240,7 @@ final class FixtureEndToEndTests: XCTestCase {
             includePackageContents: false,
             maxDepth: 4
         )
-        let bulk = tree.children.first { $0.name == "bulk" }
+        let bulk = tree.node.children.first { $0.name == "bulk" }
         XCTAssertNotNil(bulk)
         XCTAssertLessThanOrEqual(bulk?.children.count ?? 0, SpaceLensEngine.childrenCap + 1)
         if let bulk, bulk.children.contains(where: { $0.isAggregate }) {
