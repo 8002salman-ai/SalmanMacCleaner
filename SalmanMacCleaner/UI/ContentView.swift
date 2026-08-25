@@ -77,6 +77,14 @@ struct StatusAreaView: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Text("v\(displayVersion)")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(.thinMaterial, in: Capsule())
+                .help("SalmanMacCleaner version \(displayVersion)")
+
             StatusPill(LocalizedStringKey(permissionService.snapshot.fullDiskAccess.title),
                        kind: pillKind)
             if updateAvailable {
@@ -93,6 +101,10 @@ struct StatusAreaView: View {
                 updateAvailable = await SparkleUpdaterController.hasPendingUpdate()
             }
         }
+    }
+
+    private var displayVersion: String {
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.3"
     }
 
     private var pillKind: StatusPill.Kind {

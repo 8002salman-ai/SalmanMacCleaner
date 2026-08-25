@@ -123,6 +123,14 @@ public final class SpaceLensCache: @unchecked Sendable {
 
 public enum SpaceLensEngine {
 
+    /// Reference storage avoids overlapping `inout` access when recursive
+    /// traversal reports progress from inside the same call stack.
+    private final class ScanMetrics {
+        var filesScanned = 0
+        var bytesIndexed: Int64 = 0
+        var inaccessibleCount = 0
+    }
+
     /// Maximum children kept per level before "Other" aggregation.
     public static let childrenCap = 48
 
@@ -143,18 +151,16 @@ public enum SpaceLensEngine {
         isCancelled: @escaping () -> Bool = { false }
     ) -> (node: SpaceLensNode, state: SpaceLensRootState) {
         let startTime = Date()
-        var filesScanned = 0
-        var bytesIndexed: Int64 = 0
-        var inaccessibleCount = 0
+        let metrics = ScanMetrics()
 
         func reportProgress(currentPath: String) {
             let elapsed = Date().timeIntervalSince(startTime)
             progress(SpaceLensProgress(
                 currentPath: currentPath,
-                filesScanned: filesScanned,
-                bytesIndexed: bytesIndexed,
+                filesScanned: metrics.filesScanned,
+                bytesIndexed: metrics.bytesIndexed,
                 elapsed: elapsed,
-                inaccessibleCount: inaccessibleCount
+                inaccessibleCount: metrics.inaccessibleCount
             ))
         }
 
@@ -164,9 +170,7 @@ public enum SpaceLensEngine {
             maxDepth: maxDepth,
             includeHidden: includeHidden,
             includePackageContents: includePackageContents,
-            filesScanned: &filesScanned,
-            bytesIndexed: &bytesIndexed,
-            inaccessibleCount: &inaccessibleCount,
+            metrics: metrics,
             reportProgress: reportProgress,
             isCancelled: isCancelled
         )
@@ -174,8 +178,8 @@ public enum SpaceLensEngine {
         let state: SpaceLensRootState
         if node.isDenied && node.totalBytes == 0 {
             state = .denied(reason: NSLocalizedString("space_lens.error.denied", comment: ""))
-        } else if inaccessibleCount > 0 {
-            state = .partial(deniedPaths: inaccessibleCount, errors: 0)
+        } else if metrics.inaccessibleCount > 0 {
+            state = .partial(deniedPaths: metrics.inaccessibleCount, errors: 0)
         } else {
             state = .measured(bytes: node.totalBytes, fileCount: node.totalFiles)
         }
@@ -190,9 +194,7 @@ public enum SpaceLensEngine {
         maxDepth: Int,
         includeHidden: Bool,
         includePackageContents: Bool,
-        filesScanned: inout Int,
-        bytesIndexed: inout Int64,
-        inaccessibleCount: inout Int,
+        metrics: ScanMetrics,
         reportProgress: (String) -> Void,
         isCancelled: @escaping () -> Bool
     ) -> SpaceLensNode {
@@ -231,7 +233,7 @@ public enum SpaceLensEngine {
             includingPropertiesForKeys: keys,
             options: [.skipsSubdirectoryDescendants]
         ) else {
-            inaccessibleCount += 1
+            metrics.inaccessibleCount += 1
             return SpaceLensNode(
                 name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
                 path: path,
@@ -255,7 +257,7 @@ public enum SpaceLensEngine {
         for entry in entries {
             if isCancelled() { break }
             guard let values = try? entry.resourceValues(forKeys: Set(keys)) else {
-                inaccessibleCount += 1
+                metrics.inaccessibleCount += 1
                 continue
             }
             if values.isSymbolicLink == true { continue }
@@ -272,8 +274,8 @@ public enum SpaceLensEngine {
                     let size = Int64(values.fileAllocatedSize ?? values.fileSize ?? 0)
                     ownBytes += size
                     ownFiles += 1
-                    filesScanned += 1
-                    bytesIndexed += size
+                    metrics.filesScanned += 1
+                    metrics.bytesIndexed += size
                     continue
                 }
                 let child = measureDirectory(
@@ -282,9 +284,7 @@ public enum SpaceLensEngine {
                     maxDepth: maxDepth,
                     includeHidden: includeHidden,
                     includePackageContents: includePackageContents,
-                    filesScanned: &filesScanned,
-                    bytesIndexed: &bytesIndexed,
-                    inaccessibleCount: &inaccessibleCount,
+                    metrics: metrics,
                     reportProgress: reportProgress,
                     isCancelled: isCancelled
                 )
@@ -293,9 +293,9 @@ public enum SpaceLensEngine {
                 let size = Int64(values.fileAllocatedSize ?? values.fileSize ?? 0)
                 ownBytes += size
                 ownFiles += 1
-                filesScanned += 1
-                bytesIndexed += size
-                if filesScanned % 150 == 0 {
+                metrics.filesScanned += 1
+                metrics.bytesIndexed += size
+                if metrics.filesScanned % 150 == 0 {
                     reportProgress(entryPath)
                 }
             }

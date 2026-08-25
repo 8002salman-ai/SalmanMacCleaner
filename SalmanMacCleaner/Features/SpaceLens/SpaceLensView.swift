@@ -296,9 +296,7 @@ public struct SpaceLensView: View {
                     model.selectTarget(target)
                 } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: target.icon)
-                            .font(.system(size: 13))
-                            .foregroundStyle(model.selectedTargetPath == target.path ? AuroraPalette.electricPurple : .secondary)
+                        SpaceLensRootGlyph(name: target.name, selected: model.selectedTargetPath == target.path)
                         Text(target.name)
                             .font(.callout.weight(model.selectedTargetPath == target.path ? .semibold : .regular))
                             .foregroundStyle(model.selectedTargetPath == target.path ? .primary : .secondary)
@@ -329,7 +327,7 @@ public struct SpaceLensView: View {
             Button {
                 chooseCustomFolder()
             } label: {
-                Label("space_lens.choose_folder", systemImage: "folder.badge.plus")
+                Text("space_lens.choose_folder")
             }
             .buttonStyle(AuroraSecondaryButtonStyle())
         }
@@ -352,9 +350,8 @@ public struct SpaceLensView: View {
 
     private func unscannedOrErrorView(target: SpaceLensTargetRoot) -> some View {
         VStack(spacing: 16) {
-            Image(systemName: target.icon)
-                .font(.system(size: 48))
-                .foregroundStyle(AuroraPalette.electricPurple)
+            SpaceLensRootGlyph(name: target.name, selected: true)
+                .frame(width: 54, height: 54)
 
             Text(target.name)
                 .font(.title2.weight(.bold))
@@ -374,7 +371,7 @@ public struct SpaceLensView: View {
                 Button {
                     model.scan(targetPath: target.path)
                 } label: {
-                    Label("space_lens.start_scan", systemImage: "play.fill")
+                    Text("space_lens.start_scan")
                         .font(.callout.weight(.semibold))
                 }
                 .buttonStyle(AuroraPrimaryButtonStyle())
@@ -419,8 +416,8 @@ public struct SpaceLensView: View {
 
     private var scanningProgressView: some View {
         VStack(spacing: 20) {
-            ProgressView()
-                .controlSize(.large)
+            SpaceLensActivityIndicator()
+                .frame(width: 56, height: 56)
 
             Text("space_lens.measuring_title")
                 .font(.title3.weight(.semibold))
@@ -735,6 +732,60 @@ public struct SpaceLensView: View {
         if panel.runModal() == .OK, let url = panel.url {
             model.addCustomTarget(url: url)
         }
+    }
+}
+
+/// Pure SwiftUI activity ring. The native indeterminate `ProgressView` maps to
+/// `NSProgressIndicator` on macOS and triggered an AppKit initialization crash
+/// on some systems when Space Lens first entered its scanning state.
+private struct SpaceLensActivityIndicator: View {
+    @EnvironmentObject private var accessibility: AccessibilityEnvironment
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: accessibility.reduceMotion ? 1 : 1.0 / 24.0)) { timeline in
+            let phase = accessibility.reduceMotion
+                ? 0.0
+                : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.2) / 1.2
+
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.10), lineWidth: 6)
+                Circle()
+                    .trim(from: 0.08, to: 0.72)
+                    .stroke(
+                        AngularGradient(
+                            colors: [AuroraPalette.electricPurple.opacity(0.20), AuroraPalette.electricPurple, .cyan],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(phase * 360))
+                    .shadow(color: AuroraPalette.electricPurple.opacity(0.55), radius: 10)
+            }
+            .accessibilityLabel(Text("space_lens.measuring_title"))
+        }
+    }
+}
+
+/// Asset-catalog independent root glyph. Keeping this page free of dynamic
+/// SF Symbol lookups avoids a CoreUI crash observed while the Space Lens
+/// target selector was first being constructed.
+private struct SpaceLensRootGlyph: View {
+    let name: String
+    let selected: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9)
+                .fill(selected ? AuroraPalette.electricPurple.opacity(0.30) : Color.white.opacity(0.08))
+            RoundedRectangle(cornerRadius: 9)
+                .strokeBorder(selected ? AuroraPalette.electricPurple.opacity(0.65) : Color.white.opacity(0.12), lineWidth: 1)
+            Text(String(name.prefix(1)).uppercased())
+                .font(.caption.weight(.bold))
+                .foregroundStyle(selected ? AuroraPalette.electricPurple : Color.secondary)
+        }
+        .frame(width: 26, height: 26)
+        .accessibilityHidden(true)
     }
 }
 
