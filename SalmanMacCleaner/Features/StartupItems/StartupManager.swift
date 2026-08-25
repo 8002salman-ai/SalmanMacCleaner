@@ -2,13 +2,13 @@
 //  StartupManager.swift
 //  SalmanMacCleaner
 //
-//  Read-only discovery of login items, launch agents and launch daemons.
-//  Version 1 intentionally does NOT modify startup items — the UI is
-//  explicitly read-only.
+//  Startup & Background Items inventory using public APIs (SMAppService) and
+//  supported launch-agent locations. Launch daemons are shown read-only.
+//  No deprecated LSSharedFileList APIs are used. Version 1 of this module
+//  never disables or removes anything automatically.
 //
 
 import Foundation
-import CoreServices
 import ServiceManagement
 
 public enum StartupItemSource: String, CaseIterable, Identifiable {
@@ -27,139 +27,135 @@ public enum StartupItemSource: String, CaseIterable, Identifiable {
     }
 }
 
+public struct StartupItemDetail: Identifiable, Equatable {
+    public let id: UUID
+    public var name: String
+    public var path: String
+    public var source: StartupItemSource
+    public var executable: String?
+    public var owningApp: String?
+    public var isBroken: Bool
+    public var isEnabled: Bool?
+    public var detail: String
+
+    public init(id: UUID = UUID(),
+                name: String,
+                path: String,
+                source: StartupItemSource,
+                executable: String?,
+                owningApp: String?,
+                isBroken: Bool,
+                isEnabled: Bool?,
+                detail: String) {
+        self.id = id
+        self.name = name
+        self.path = path
+        self.source = source
+        self.executable = executable
+        self.owningApp = owningApp
+        self.isBroken = isBroken
+        self.isEnabled = isEnabled
+        self.detail = detail
+    }
+}
+
 public enum StartupManager {
 
-    /// Whether the modern login-item API is available (macOS 13+). It is used
-    /// only to *read* the app's own status — never to change anything.
-    public static var canReadModernLoginItems: Bool {
+    /// Whether this app currently registers itself to launch at login
+    /// (public SMAppService API — read-only usage here).
+    public static var ownLoginItemStatus: SMAppService.Status? {
         if #available(macOS 13.0, *) {
-            _ = SMAppService.mainApp.status
-            return true
+            return SMAppService.mainApp.status
         }
-        return false
+        return nil
     }
 
-    /// Gather all startup items the app is able to see without elevated
-    /// privileges. Launch agents are discovered from the standard LaunchAgents
-    /// folders (user + per-user system location); login items come from the
-    /// legacy shared list; daemons are listed from the system folder when
-    /// readable (read-only).
-    public static func discover() -> [StartupItem] {
-        var items: [StartupItem] = []
-
-        items.append(contentsOf: discoverUserLaunchAgents())
-        items.append(contentsOf: discoverLoginItems())
-        items.append(contentsOf: discoverSystemDaemons())
+    /// Gather all startup/background items the app can see without elevated
+    /// privileges. Never modifies anything.
+    public static func discover() -> [StartupItemDetail] {
+        var items: [StartupItemDetail] = []
+        items.append(contentsOf: discoverLaunchAgents(folder: PathSafety.userHome.path + "/Library/LaunchAgents", source: .launchAgents, daemon: false))
+        items.append(contentsOf: discoverLaunchAgents(folder: "/Library/LaunchAgents", source: .launchDaemons, daemon: true))
+        items.append(contentsOf: discoverLaunchAgents(folder: "/System/Library/LaunchAgents", source: .launchDaemons, daemon: true))
+        items.append(contentsOf: discoverLaunchAgents(folder: "/Library/LaunchDaemons", source: .launchDaemons, daemon: true))
+        items.append(contentsOf: discoverLaunchAgents(folder: "/System/Library/LaunchDaemons", source: .launchDaemons, daemon: true))
 
         items.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         return items
     }
 
-    // MARK: - Launch agents
+    /// Parse launchd plists from a folder: Label, Program/ProgramArguments,
+    /// disabled flag, broken-reference detection.
+    public static func discoverLaunchAgents(folder: String, source: StartupItemSource, daemon: Bool) -> [StartupItemDetail] {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: URL(fileURLWithPath: folder, isDirectory: true),
+            includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
 
-    public static func discoverUserLaunchAgents() -> [StartupItem] {
-        let home = PathSafety.userHome.path
-        let candidateFolders = [
-            home + "/Library/LaunchAgents",
-            "/Library/LaunchAgents"   // read-only listing; entries are shown but never modified
-        ]
-        var items: [StartupItem] = []
+        var items: [StartupItemDetail] = []
+        for url in contents where url.pathExtension == "plist" {
+            guard let plist = launchdPlist(at: url.path) else { continue }
+            let label = (plist["Label"] as? String) ?? url.lastPathComponent
 
-        for folder in candidateFolders {
-            guard let contents = try? FileManager.default.contentsOfDirectory(
-                at: URL(fileURLWithPath: folder, isDirectory: true),
-                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
-                options: [.skipsHiddenFiles]
-            ) else { continue }
-
-            for url in contents where url.pathExtension == "plist" {
-                let path = url.path
-                let name = (path as NSString).lastPathComponent
-                let label = launchAgentLabel(at: path) ?? name
-                let detail = String(format: NSLocalizedString("startup.detail.agent", comment: ""), folder)
-                items.append(StartupItem(
-                    name: label,
-                    path: path,
-                    source: folder.hasPrefix(home) ? .launchAgent : .launchDaemon,
-                    detail: detail
-                ))
+            var executable: String?
+            if let program = plist["Program"] as? String {
+                executable = program
+            } else if let arguments = plist["ProgramArguments"] as? [String], let first = arguments.first {
+                executable = first
             }
+
+            let isBroken: Bool
+            if let executable, executable.hasPrefix("/") {
+                isBroken = !FileManager.default.fileExists(atPath: executable)
+                    && !FileManager.default.fileExists(atPath: expandTilde(executable))
+            } else {
+                // Relative binaries are resolved by launchd PATH — treat as
+                // unknown, not broken.
+                isBroken = false
+            }
+
+            let isEnabled: Bool? = plist["Disabled"] as? Bool
+
+            items.append(StartupItemDetail(
+                name: label,
+                path: url.path,
+                source: source,
+                executable: executable,
+                owningApp: plist["BundleProgram"] as? String,
+                isBroken: isBroken,
+                isEnabled: isEnabled.map { !$0 },
+                detail: daemon
+                    ? NSLocalizedString("startup.detail.daemon", comment: "")
+                    : NSLocalizedString("startup.detail.agent", comment: "")
+            ))
         }
         return items
     }
 
-    /// Parse a launchd plist's Label field without executing anything.
-    public static func launchAgentLabel(at path: String) -> String? {
+    /// Read a launchd plist (data only — never executed).
+    public static func launchdPlist(at path: String) -> [String: Any]? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
               let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
               let dict = plist as? [String: Any] else {
             return nil
         }
-        return dict["Label"] as? String
+        return dict
     }
 
-    // MARK: - Login items
-
-    public static func discoverLoginItems() -> [StartupItem] {
-        guard let listRef = LSSharedFileListCreate(
-            nil,
-            kLSSharedFileListSessionLoginItems.takeUnretainedValue(),
-            nil
-        ) else {
-            return []
-        }
-        let loginItems = listRef.takeRetainedValue()
-        guard let snapshot = LSSharedFileListCopySnapshot(loginItems, nil)?.takeRetainedValue() else {
-            return []
-        }
-
-        var result: [StartupItem] = []
-        if let typedItems = snapshot as NSArray as? [LSSharedFileListItem] {
-            for item in typedItems {
-                guard let url = LSSharedFileListItemCopyResolvedURL(item, 0, nil)?.takeRetainedValue() else { continue }
-                let path = (url as URL).path
-                let name = (path as NSString).lastPathComponent
-                result.append(StartupItem(
-                    name: name,
-                    path: path,
-                    source: .loginItem,
-                    detail: NSLocalizedString("startup.detail.login_item", comment: "")
-                ))
-            }
-        }
-        return result
+    /// Parse a launchd plist's Label field without executing anything.
+    public static func launchAgentLabel(at path: String) -> String? {
+        launchdPlist(at: path)?["Label"] as? String
     }
 
-    // MARK: - System daemons (read-only)
-
-    public static func discoverSystemDaemons() -> [StartupItem] {
-        var items: [StartupItem] = []
-        let daemonFolders = ["/Library/LaunchDaemons", "/System/Library/LaunchDaemons"]
-        for folder in daemonFolders {
-            guard let contents = try? FileManager.default.contentsOfDirectory(
-                at: URL(fileURLWithPath: folder, isDirectory: true),
-                includingPropertiesForKeys: [.isRegularFileKey],
-                options: [.skipsHiddenFiles]
-            ) else { continue }
-
-            for url in contents where url.pathExtension == "plist" {
-                let path = url.path
-                let name = (path as NSString).lastPathComponent
-                let label = launchAgentLabel(at: path) ?? name
-                items.append(StartupItem(
-                    name: label,
-                    path: path,
-                    source: .launchDaemon,
-                    detail: NSLocalizedString("startup.detail.read_only", comment: "")
-                ))
-            }
-        }
-        return items
+    private static func expandTilde(_ path: String) -> String {
+        guard path.hasPrefix("~/") else { return path }
+        return NSHomeDirectory() + String(path.dropFirst())
     }
 
     // MARK: - Policy
 
-    /// Version 1 is read-only: no startup item may be modified.
+    /// Version 1 never modifies startup/background items automatically.
     public static var modificationsAllowed: Bool { false }
 
     /// Human-readable explanation shown in the UI.
