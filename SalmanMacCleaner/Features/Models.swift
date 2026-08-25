@@ -128,29 +128,6 @@ public struct DeveloperCacheEntry: Identifiable, Equatable {
     }
 }
 
-/// One startup item, discovered read-only.
-public struct StartupItem: Identifiable, Equatable {
-    public enum Source: String, Equatable {
-        case loginItem
-        case launchAgent
-        case launchDaemon
-    }
-
-    public let id: UUID
-    public let name: String
-    public let path: String
-    public let source: Source
-    public let detail: String
-
-    public init(id: UUID = UUID(), name: String, path: String, source: Source, detail: String) {
-        self.id = id
-        self.name = name
-        self.path = path
-        self.source = source
-        self.detail = detail
-    }
-}
-
 /// Confidence label for uninstaller candidates.
 public enum UninstallConfidence: String, Equatable {
     case high
@@ -171,46 +148,6 @@ public enum UninstallConfidence: String, Equatable {
         case .medium: return "F59E0B"
         case .cautious: return "EF4444"
         }
-    }
-}
-
-/// One uninstaller candidate: the app bundle plus matched support files.
-public struct UninstallCandidate: Identifiable, Equatable {
-    public let id: UUID
-    public let name: String
-    public let bundlePath: String
-    public let bundleID: String?
-    public let version: String?
-    public let size: Int64
-    public let supportItems: [ScannedItem]
-    public let confidence: UninstallConfidence
-    public let isRunning: Bool
-    public let isUserOwned: Bool
-
-    public init(id: UUID = UUID(),
-                name: String,
-                bundlePath: String,
-                bundleID: String?,
-                version: String?,
-                size: Int64,
-                supportItems: [ScannedItem],
-                confidence: UninstallConfidence,
-                isRunning: Bool,
-                isUserOwned: Bool) {
-        self.id = id
-        self.name = name
-        self.bundlePath = bundlePath
-        self.bundleID = bundleID
-        self.version = version
-        self.size = size
-        self.supportItems = supportItems
-        self.confidence = confidence
-        self.isRunning = isRunning
-        self.isUserOwned = isUserOwned
-    }
-
-    public var totalSize: Int64 {
-        size + supportItems.reduce(0) { $0 + $1.size }
     }
 }
 

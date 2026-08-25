@@ -31,6 +31,9 @@ struct ContentView: View {
             .animation(.easeInOut(duration: accessibility.reduceMotion ? 0 : 0.28), value: appState.module)
         }
         .navigationTitle(appState.module.title)
+        .onAppear {
+            AppStateLocator.shared = appState
+        }
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 StatusAreaView()

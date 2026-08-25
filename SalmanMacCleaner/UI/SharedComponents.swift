@@ -204,16 +204,31 @@ struct ItemRowLabel: View {
 // MARK: - Confidence badge
 
 struct ConfidenceBadge: View {
-    let confidence: UninstallConfidence
+    private let title: String
+    private let tint: Color
+
+    init(confidence: UninstallConfidence) {
+        self.title = confidence.title
+        self.tint = Color(hex: confidence.colorHex)
+    }
+
+    init(confidence: LeftoverCandidate.Confidence) {
+        self.title = confidence.title
+        switch confidence {
+        case .high: self.tint = AuroraPalette.success
+        case .medium: self.tint = AuroraPalette.amber
+        case .cautious: self.tint = AuroraPalette.coral
+        }
+    }
 
     var body: some View {
-        Text(confidence.title)
+        Text(title)
             .font(.caption2.weight(.semibold))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Color(hex: confidence.colorHex).opacity(0.18), in: Capsule())
-        .foregroundStyle(Color(hex: confidence.colorHex))
-        .help(Text(NSLocalizedString("confidence.help", comment: "")))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(tint.opacity(0.18), in: Capsule())
+            .foregroundStyle(tint)
+            .help(Text(NSLocalizedString("confidence.help", comment: "")))
     }
 }
 

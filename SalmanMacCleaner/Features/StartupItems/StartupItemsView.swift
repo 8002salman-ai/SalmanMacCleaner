@@ -2,26 +2,61 @@
 //  StartupItemsView.swift
 //  SalmanMacCleaner
 //
-//  Read-only Startup Manager. Version 1 deliberately does not modify startup
-//  items; this view only lists what the app can see without elevated
-//  privileges and explains why modification is disabled.
+//  Startup & Background Items inventory: public-API discovery (SMAppService
+//  status for this app, launch agents/daemons from supported locations),
+//  broken-reference detection and impact explanation. Version 1 never
+//  disables or removes anything automatically.
 //
 
 import SwiftUI
+import ServiceManagement
 
 struct StartupItemsView: View {
     @EnvironmentObject private var appState: AppState
-    @State private var items: [StartupItem] = []
+    @State private var items: [StartupItemDetail] = []
     @State private var isLoading = false
+    @State private var heroMode = true
     @State private var searchText = ""
-    @State private var sourceFilter: StartupItem.Source?
+    @State private var sourceFilter: StartupItemSource?
 
     var body: some View {
+        Group {
+            if heroMode {
+                HeroScreenView(
+                    module: .startupItems,
+                    isBusy: isLoading,
+                    lastScanText: nil,
+                    permissionWarning: nil,
+                    estimatedScope: NSLocalizedString("hero.startup.scope", comment: ""),
+                    primaryAction: {
+                        heroMode = false
+                        load()
+                    },
+                    selectors: { EmptyView() }
+                )
+                .task { load() }
+            } else {
+                workspace
+            }
+        }
+    }
+
+    private var workspace: some View {
         VStack(alignment: .leading, spacing: 14) {
             PermissionBannerView(
                 message: StartupManager.readOnlyExplanation,
                 systemImage: "eye.slash"
             )
+
+            if let status = StartupManager.ownLoginItemStatus {
+                HStack(spacing: 10) {
+                    Text("startup.self_status")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Text(statusTitle(status))
+                        .font(.callout.weight(.semibold))
+                }
+            }
 
             HStack(spacing: 12) {
                 Button {
@@ -29,23 +64,24 @@ struct StartupItemsView: View {
                 } label: {
                     Label("startup.refresh", systemImage: "arrow.clockwise")
                 }
+                .buttonStyle(AuroraSecondaryButtonStyle())
                 .disabled(isLoading)
 
                 Picker("startup.source_filter", selection: $sourceFilter) {
-                    Text("startup.filter.all").tag(StartupItem.Source?.none)
-                    ForEach([StartupItem.Source.loginItem, .launchAgent, .launchDaemon], id: \.rawValue) { source in
-                        Text(sourceTitle(source)).tag(StartupItem.Source?.some(source))
+                    Text("startup.filter.all").tag(StartupItemSource?.none)
+                    ForEach(StartupItemSource.allCases) { source in
+                        Text(source.title).tag(StartupItemSource?.some(source))
                     }
                 }
                 .frame(width: 200)
-                Spacer()
 
+                Spacer()
                 if isLoading {
                     ProgressView().controlSize(.small)
                 }
             }
 
-            if items.isEmpty && !isLoading {
+            if filteredItems.isEmpty && !isLoading {
                 EmptyStateView(
                     systemImage: "power",
                     title: "startup.empty.title",
@@ -54,55 +90,54 @@ struct StartupItemsView: View {
             } else {
                 List(filteredItems) { item in
                     HStack(spacing: 10) {
-                        Image(systemName: item.source == .loginItem ? "person.crop.circle" : "gearshape.2")
+                        Image(systemName: item.source == .loginItems ? "person.crop.circle" : "gearshape.2")
                             .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.name)
                                 .lineLimit(1)
-                            Text(item.path)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+                            if let executable = item.executable {
+                                Text(executable)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                            }
                         }
                         Spacer()
-                            Text(sourceTitle(item.source))
+                        if item.isBroken {
+                            StatusPill("startup.broken", kind: .warning)
+                        }
+                        if let isEnabled {
+                            Text(isEnabled ? "startup.enabled" : "startup.disabled")
+                                .font(.caption2)
+                                .foregroundStyle(isEnabled ? AuroraPalette.success : AuroraPalette.amber)
+                        }
+                        Text(item.source.title)
                             .font(.caption)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
                             .background(.quaternary, in: Capsule())
                     }
                     .help(Text(item.detail))
+                    .accessibilityElement(children: .combine)
                 }
                 .listStyle(.inset)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(20)
-        .navigationTitle(AppSection.startupItems.title)
+        .padding(24)
         .searchable(text: $searchText, prompt: Text("search.items.prompt"))
-        .onAppear {
-            if items.isEmpty { load() }
-        }
     }
 
-    private var filteredItems: [StartupItem] {
+    private var filteredItems: [StartupItemDetail] {
         let filtered = items.filter { item in
             if let sourceFilter, item.source != sourceFilter { return false }
             if searchText.isEmpty { return true }
             return item.name.localizedCaseInsensitiveContains(searchText)
-                || item.path.localizedCaseInsensitiveContains(searchText)
+                || (item.executable?.localizedCaseInsensitiveContains(searchText) ?? false)
         }
         return filtered
-    }
-
-    private func sourceTitle(_ source: StartupItem.Source) -> String {
-        switch source {
-        case .loginItem: return NSLocalizedString("startup.source.login_items", comment: "")
-        case .launchAgent: return NSLocalizedString("startup.source.agents", comment: "")
-        case .launchDaemon: return NSLocalizedString("startup.source.daemons", comment: "")
-        }
     }
 
     private func load() {
@@ -113,6 +148,16 @@ struct StartupItemsView: View {
                 items = discovered
                 isLoading = false
             }
+        }
+    }
+
+    private func statusTitle(_ status: SMAppService.Status) -> String {
+        switch status {
+        case .enabled: return NSLocalizedString("startup.self.enabled", comment: "")
+        case .notRegistered: return NSLocalizedString("startup.self.not_registered", comment: "")
+        case .requiresApproval: return NSLocalizedString("startup.self.requires_approval", comment: "")
+        case .notFound: return NSLocalizedString("startup.self.not_found", comment: "")
+        @unknown default: return NSLocalizedString("startup.self.unknown", comment: "")
         }
     }
 }

@@ -127,11 +127,11 @@ def main() -> int:
     # and require a unique hit.
     missing: list[str] = []
     for ref in refs:
-        hits = [f for f in all_swift_rel if f.endswith(ref)]
+        hits = [f for f in all_swift_rel if os.path.basename(f) == ref]
         if len(hits) != 1:
             missing.append(ref)
     check(not missing, f"{len(refs)} Swift file reference(s) checked", f"references to missing/ambiguous files: {missing}")
-    empty = [r for r in refs if any(os.path.getsize(os.path.join(ROOT, f)) == 0 for f in all_swift_rel if f.endswith(r))]
+    empty = [r for r in refs if any(os.path.getsize(os.path.join(ROOT, f)) == 0 for f in all_swift_rel if os.path.basename(f) == r)]
     check(not empty, "no zero-byte referenced files", f"zero-byte referenced files: {empty}")
 
     # 3. All Swift files on disk are non-empty
@@ -141,7 +141,7 @@ def main() -> int:
     zero = [f for f in all_swift if os.path.getsize(f) == 0]
     check(not zero, "no zero-byte Swift source", f"zero-byte Swift files: {zero}")
     all_swift_rel = [os.path.relpath(f, ROOT) for f in all_swift]
-    unreferenced = [f for f in all_swift_rel if not any(f.endswith(ref) for ref in refs)]
+    unreferenced = [f for f in all_swift_rel if not any(os.path.basename(f) == ref for ref in refs)]
     if unreferenced:
         warning(f"Swift files not referenced by pbxproj: {unreferenced}")
     else:
@@ -177,14 +177,17 @@ def main() -> int:
         (r"\.onTapGesture\s*\{\s*\}", "empty tap gesture"),
     ]
     scanned = 0
+    section_errors: list[str] = []
     for path in all_swift:
         with open(path, "r", encoding="utf-8") as handle:
             content = strip_comments_and_strings(handle.read())
         scanned += 1
         for pattern, label in placeholder_patterns:
             if re.search(pattern, content):
-                error(f"{os.path.relpath(path, ROOT)} contains {label!r}")
-    check(not ERRORS, f"{scanned} file(s) scanned for placeholders", "placeholder code found (see above)")
+                section_errors.append(f"{os.path.relpath(path, ROOT)} contains {label!r}")
+    for item in section_errors:
+        error(item)
+    check(not section_errors, f"{scanned} file(s) scanned for placeholders", "placeholder code found (see above)")
 
     # 6. Forbidden APIs
     print("\n[6] Forbidden API scan")
@@ -206,6 +209,7 @@ def main() -> int:
         (r"removeItem\(at.*permanent", "permanent removal"),
         (r"emptyTrash", "emptyTrash"),
     ]
+    section_errors = []
     for path in all_swift:
         if TEST_DIR in path:
             continue  # tests may reference forbidden APIs to assert their absence/behavior
@@ -213,8 +217,10 @@ def main() -> int:
             content = strip_comments_and_strings(handle.read())
         for pattern, label in forbidden:
             if re.search(pattern, content):
-                error(f"{os.path.relpath(path, ROOT)} contains forbidden API {label!r}")
-    check(not ERRORS, "app sources free of forbidden APIs", "forbidden APIs found (see above)")
+                section_errors.append(f"{os.path.relpath(path, ROOT)} contains forbidden API {label!r}")
+    for item in section_errors:
+        error(item)
+    check(not section_errors, "app sources free of forbidden APIs", "forbidden APIs found (see above)")
 
     # 7. Localization keys referenced by views exist in the strings file
     print("\n[7] Localization coverage")

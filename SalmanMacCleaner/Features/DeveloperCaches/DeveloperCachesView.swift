@@ -76,7 +76,7 @@ struct DeveloperCachesView: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .navigationTitle(AppSection.developerCaches.title)
+        .navigationTitle(SidebarModule.developerCaches.title)
         .searchable(text: $viewModel.searchText, prompt: Text("search.items.prompt"))
         .toolbar {
             ToolbarItemGroup {
