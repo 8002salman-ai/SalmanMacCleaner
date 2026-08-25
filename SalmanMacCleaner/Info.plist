@@ -34,5 +34,13 @@
 	<true/>
 	<key>NSRequiresAquaSystemAppearance</key>
 	<false/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/8002salman-ai/SalmanMacCleaner/main/Support/appcast.xml</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableSystemProfiling</key>
+	<false/>
+	<key>SUPublicEDKey</key>
+	<string>REPLACE_WITH_GENERATED_SPARKLE_ED25519_PUBLIC_KEY</string>
 </dict>
 </plist>

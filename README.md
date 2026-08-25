@@ -1,122 +1,167 @@
 # Salman Mac Cleaner
 
-A safe, privacy-respecting, native macOS cleaner built with **SwiftUI**. Salman Mac Cleaner helps you find large files, duplicate files, developer caches, startup items and old applications — and it does so **preview-first**: nothing is ever deleted automatically, and every removal goes to the Trash (never permanent).
+A premium, privacy-respecting native macOS maintenance application built with
+SwiftUI. Salman Mac Cleaner finds junk, large files, duplicates, developer
+caches, leftovers and more — and it does so **preview-first**: nothing is ever
+removed automatically, and every removal goes to the Trash (never permanent).
 
-> **macOS 13+ · Swift 5.9+ · Apple Silicon (arm64)**
+> **macOS 13+ · Swift 5.9 · Apple Silicon (arm64) · Xcode 15+ / Xcode 26 ready**
 
 ---
 
-## Why this cleaner is different
+## Aurora Glass interface
 
-Most "cleaner" apps require Full Disk Access, run shell commands as root, and delete aggressively. Salman Mac Cleaner deliberately does the opposite:
+- Immersive full-window midnight/indigo/violet gradient with subtle animated
+  aurora glow (static illumination under Reduce Motion)
+- Premium glass sidebar: MAIN / CLEANUP / STORAGE / APPLICATIONS / HEALTH /
+  OTHER — 20 modules with original Canvas artwork, capsule selection and
+  distinct hover/pressed/keyboard-focus states
+- Hero screen per module: artwork, benefit, three capabilities, scope and
+  scan-mode selectors, one anchored primary action
+- Native Liquid Glass via `glassEffect` on macOS 26 (`#available` guarded,
+  `#if compiler(>=6.2)`), `.ultraThinMaterial` fallback on macOS 13–15
+- Accessibility first: Reduce Motion, Reduce Transparency, Increase Contrast,
+  VoiceOver labels, Full Keyboard Access, light/dark behavior
 
-- **Dry-run (preview) mode is ON by default.** Every cleanup shows exactly what would happen before anything is moved.
-- **Trash-only removal.** The app calls `FileManager.trashItem` exclusively. It never permanently deletes, never empties the Trash, and never uses `rm`, `sudo`, shell commands, `Process`/`NSTask`, `system()`, or `popen()`.
-- **No Full Disk Access, no admin/root.** The core app works with zero elevated privileges.
-- **Explicit selection + second confirmation.** Cleanup acts only on items you tick, after a confirmation dialog.
-- **Protected locations are hard-blocked** in code: `/System`, `/Library`, `/private`, `/usr`, `/bin`, `/sbin`, `/Applications`, `/Volumes`, `/Network`, `/dev`, `/cores`, other users' files, app bundles, keychains, passwords, cookies, sessions, browser history, email, photos, personal documents, source repositories, Git metadata, cloud databases, Time Machine backups and VM disks.
-- **Personal folders are never scanned by default.** Desktop, Documents, Downloads, Pictures, Music and Movies are only touched if you explicitly pick a specific folder inside them.
-- **No network calls, ever.** There is no analytics, no telemetry, no update checker. The app cannot reach the internet.
+## Modules
 
-## Features
-
-| Feature | Description |
+| Group | Modules |
 | --- | --- |
-| **Dashboard & storage overview** | Volume ring chart, per-folder usage bars, safety posture summary, quick actions and local cleanup history. |
-| **Preview-first Safe Cleanup** | Every tool supports a "Preview Cleanup" pass that changes nothing, plus a confirmed trash-only pass for selected items. |
-| **Large File Finder** | Depth-limited scan of **user-selected folders only**, sortable/filterable results, threshold from Settings. |
-| **Developer cache scanner** | Xcode DerivedData, Archives, Simulator data, SwiftPM, CocoaPods, npm, Yarn, pnpm, Gradle, Maven, Cargo, pip and Homebrew caches — grouped by category, preview-first. |
-| **Read-only Startup Manager** | Lists login items, launch agents and launch daemons. Version 1 deliberately never modifies them. |
-| **Streaming SHA-256 Duplicate Finder** | Exact-content duplicates in explicitly selected folders, with hard-link awareness and a kept copy per group. |
-| **Cautious App Uninstaller** | Only your own `~/Applications` apps, with High/Medium/Caution confidence labels, support-file matching, and a hard block on running apps. |
-| **Non-sensitive browser/application cache cleaner** | Caches from tools and apps (never cookies, history, sessions, saved passwords or personal data). |
-| **Local cleanup history** | Every cleanup is recorded locally with JSON/CSV export. |
-| **Settings** | Thresholds, exclusions, scan depth, dev-cache categories, appearance (light/dark/system) and the master dry-run toggle. |
+| MAIN | **Smart Care** · **Deep Scan** |
+| CLEANUP | **System Junk** · **Trash Bins** · **App Leftovers** · **Developer Caches** |
+| STORAGE | **Space Lens** · **Large & Old Files** · **Duplicates** · **My Clutter** |
+| APPLICATIONS | **Applications** · **Uninstaller** · **App Updater** · **Startup & Background Items** |
+| HEALTH | **Performance** · **Security Audit** · **Permissions** |
+| OTHER | **My Tools** · **Activity & History** · **Settings** |
 
-## Safety architecture
+Unavailable features (e.g. third-party app update inventory, Trash emptying,
+startup-item modification) are shown with a technically accurate reason —
+never faked.
 
-1. **Path validation at scan time** — `PathSafety.validate` canonicalizes parents, rejects symlinks by default, enforces user-home containment, protected-root checks, ownership checks and device-boundary checks.
-2. **Revalidation immediately before cleanup** — `CleanupEngine.revalidate` runs the exact same validation again right before `trashItem`, closing TOCTOU gaps.
-3. **No symlink following during traversal** — recursive scans never follow links, so symlink loops and cross-volume escapes are impossible.
-4. **Only selected items** — the engine receives the exact set of user-ticked items; there is no "delete all found".
-5. **Running apps are blocked** — the uninstaller refuses to remove a running app.
-6. **Cancellable, cooperative scans** — every scanner polls a cancellation closure between files/directories.
+## Scan modes
 
-## Requirements
+- **Quick Scan** — high-value junk locations, leftovers and dev caches; no
+  broad personal-folder traversal; cached inventory where valid.
+- **Balanced Scan** — Quick plus user-Library metadata traversal, app
+  inventory, old installers, startup inventory and duplicate pre-grouping.
+- **Deep Scan** — the deepest honest scan macOS allows: full accessible
+  inventory with hidden files on selected volumes (startup volume by
+  default; external/network/cloud volumes require explicit opt-in), apps,
+  leftovers, staged duplicate hashing and a storage map. 13 real phases,
+  pause/resume/cancel, thermal-pressure auto-pause, honest coverage report.
+- **Custom Scan** — volumes, folders, categories, hidden files, package
+  contents, hashing, minimum size/age, inventory-only mode.
 
-- macOS 13 Ventura or later
-- Xcode 15 or later (Swift 5.9 toolchain)
-- Apple Silicon (arm64)
+## Deep scan architecture
+
+`SalmanMacCleaner/Engine/` — reusable, production-grade components:
+
+- `DeepScanCoordinator` (13 phases, `AsyncStream` events, generation tokens)
+- `VolumeDiscoveryService` (statfs-based, network/cloud/Time Machine opt-in)
+- `FileInventoryScanner` (prefetched resource keys, batched sinks, depth
+  bounds, cooperative cancellation, disappearing-file tolerance)
+- `TraversalPolicy` + `PathSafety` (canonicalization, symlink containment,
+  ownership, device boundaries, protected roots/names/suffixes)
+- `JunkClassifier` (SAFE / REVIEW / PROTECTED; only SAFE is smart-selected)
+- `ApplicationInventoryService` (all app roots, architecture via Mach-O
+  headers, SecStaticCode signing state, quarantine xattr)
+- `ResidualCorrelationEngine` (exact bundle/container/preference/saved-state
+  matching; loose substring matching forbidden)
+- `DuplicatePipeline` (size → sample hash → streaming SHA-256 → inode
+  identity; hard-link aware; APFS clone uncertainty labelled)
+- `ScanIndexStore` (SQLite via system libsqlite3 — schema migrations,
+  batched inserts, checkpoints, root-granularity resume)
+- `IncrementalScanSupport` (public FSEvents only — last event ID per volume,
+  `MustScanSubDirs` rescan, `.fseventsd` never touched)
+- `ScanCoverageReport` (precise wording: scanned/partial/denied/SIP/skipped)
+- `CleanupPlanBuilder` → `CleanupSafetyValidator` → `CleanupExecutor`
+  (immutable plan, TOCTOU revalidation, trash-only execution)
+- `IgnoreListStore`, `ScanProgressAggregator`, `ScanGate` (pause/resume)
+
+## Safety rules (unchanged and extended)
+
+- **Preview Mode ON by default**; a deliberate, confirmed control exits it.
+- Only user-selected items ever enter a cleanup plan; SAFE items may be
+  smart-selected; REVIEW and PROTECTED are never auto-selected.
+- Removal happens exclusively through `FileManager.trashItem`. The app never
+  permanently deletes, never empties the Trash, never uses `sudo`, `rm`,
+  shell commands, `Process`/`NSTask`, `system()`, `popen()` or network calls.
+- `/System`, `/Library`, `/private`, `/usr`, `/bin`, `/sbin`, `/Applications`,
+  `/Volumes`, `/Network`, `/dev`, `/cores` are hard-blocked; Desktop,
+  Documents, Downloads, Pictures, Music and Movies are never scanned by
+  default; other users' files, keychains, browser privacy data, personal
+  documents, source repositories, cloud databases, Time Machine and VM disks
+  are protected; running apps are never removed.
+- SIP is never bypassed and the user is never asked to disable it. Full Disk
+  Access is granted by the user in System Settings — the app probes it with
+  carefully worded results (likely/limited/not determined/denied).
+- Scan coverage is reported precisely; "Entire Mac scanned" is never shown
+  unless true.
+
+## Permissions & first run
+
+The **Permissions** module (plus the onboarding flow inside Deep Scan)
+explains what Full Disk Access enables, what SIP keeps protected, that macOS
+requires manual grant, and the coverage impact of continuing limited. It
+opens the correct System Settings pane via
+`x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles`.
+
+## Updates
+
+Sparkle 2 self-update via Swift Package Manager. Updates install **only** when
+a real signed feed + EdDSA public key exist and the running binary passes the
+Developer ID requirement — development builds honestly disable updates.
+Third-party app update inventory is intentionally unavailable (no invented
+version data). See `Docs/SparkleSetup.md` for the key generation, secrets and
+release runbook, and `Docs/Distribution.md` for the two distribution editions.
 
 ## Building
 
 ```bash
-# Clone
-git clone https://github.com/8002salman-ai/SalmanMacCleaner.git
-cd SalmanMacCleaner
-
-# Build (arm64)
+# Debug (unsigned)
 xcodebuild -project SalmanMacCleaner.xcodeproj \
   -scheme SalmanMacCleaner \
-  -configuration Release \
+  -configuration Debug \
   -destination 'platform=macOS,arch=arm64' \
-  build
+  CODE_SIGNING_ALLOWED=NO build
 
-# Run tests
+# Release
 xcodebuild -project SalmanMacCleaner.xcodeproj \
-  -scheme SalmanMacCleaner \
-  -destination 'platform=macOS,arch=arm64' \
-  test
+  -scheme SalmanMacCleaner -configuration Release \
+  -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO build
+
+# Tests
+xcodebuild -project SalmanMacCleaner.xcodeproj \
+  -scheme SalmanMacCleaner -configuration Debug \
+  -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO test
 ```
 
-The app is sandboxed and hardened; ad-hoc signing is enabled by default so it builds without a developer account.
+`Tools/generate_pbxproj.py` regenerates the project file from the directory
+tree; `Tools/validate_project.py`, `Tools/parse_check.py` and
+`Tools/xref_check.py` provide no-Xcode structural validation.
 
 ## Project layout
 
 ```
-SalmanMacCleaner.xcodeproj          Xcode project (app + unit test targets)
+SalmanMacCleaner.xcodeproj        app + test targets, shared scheme, Sparkle SPM ref
 SalmanMacCleaner/
-  SalmanMacCleanerApp.swift         SwiftUI app entry point
-  Info.plist                        App metadata
-  SalmanMacCleaner.entitlements     Sandbox + user-selected file entitlements
-  Assets.xcassets                   App icon set + accent color
-  en.lproj/Localizable.strings      English localization
-  Core/                             Safety, crypto, cleanup engine, state
-    PathSafety.swift                Central path-safety policy
-    Crypto.swift                    Streaming SHA-256 (CommonCrypto)
-    CleanupEngine.swift             Trash-only removal + revalidation
-    AppState.swift / SettingsStore.swift / HistoryStore.swift / FileUtilities.swift
-  Features/
-    Dashboard/                      Storage overview + dashboard UI
-    LargeFiles/                     Large File Finder
-    Duplicates/                     Duplicate Finder
-    DeveloperCaches/                Developer cache scanner
-    StartupItems/                   Read-only startup manager
-    Uninstaller/                    Cautious uninstaller
-  UI/                               ContentView, sidebar, settings, shared components
-SalmanMacCleanerTests/              XCTest unit tests
-Tools/validate_project.py           Structural project validator
-CHANGELOG.md · SECURITY.md · LICENSE
+  Core/                           safety, cleanup engine, stores, updater
+  Engine/                         deep-scan architecture (see above)
+  UI/                             Aurora shell, hero, results workspace
+  UI/DesignSystem/                tokens, aurora background, glass, artwork
+  Features/                       20 modules (Space Lens, Permissions, …)
+  en.lproj/Localizable.strings    750+ localized strings
+SalmanMacCleanerTests/            60+ tests incl. fixture end-to-end flow
+Support/appcast.xml               Sparkle feed (stable raw URL)
+Docs/                             Sparkle setup + distribution architecture
+.github/workflows/                ci.yml + release.yml (sign/notarize/staple)
 ```
 
-## Validation without Xcode
+## Privacy
 
-On non-macOS hosts you can still validate the project structurally:
-
-```bash
-python3 Tools/validate_project.py            # structure, references, forbidden APIs
-pip install tree-sitter tree-sitter-swift    # then:
-python3 Tools/parse_check.py                 # syntax-parse every Swift file
-python3 Tools/xref_check.py                  # heuristic cross-reference check
-```
-
-## Contributing
-
-Contributions are welcome. Please keep the safety rules in mind:
-
-- Never introduce permanent deletion, shell execution, sudo, or network calls.
-- Keep preview-first behavior and trash-only removal.
-- Add tests for any new path handling — see `SalmanMacCleanerTests`.
+Everything is local. No analytics SDKs, no network calls from the app, no
+upload of paths, names, hashes, inventory or history. History export is
+local, and a Settings toggle redacts paths in history views.
 
 ## License
 

@@ -5,6 +5,65 @@ All notable changes to Salman Mac Cleaner are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-25
+
+### Added
+
+- **Aurora Glass design system**: semantic color tokens, immersive midnight/
+  indigo/violet gradient, animated aurora illumination (static under Reduce
+  Motion), glass surfaces, native Liquid Glass on macOS 26 behind
+  `#available` + `#if compiler(>=6.2)` guards, `.ultraThinMaterial` fallback.
+- **Premium sidebar** with all 20 modules (MAIN/CLEANUP/STORAGE/
+  APPLICATIONS/HEALTH/OTHER), capsule selection, distinct hover/pressed/
+  focus states, original Canvas artwork per module.
+- **Hero screens** for every module: benefit, three capabilities, scope and
+  scan-mode selectors, anchored primary action, last-scan and permission
+  warnings.
+- **Four genuine scan modes**: Quick, Balanced, Deep and Custom via
+  `ScanPolicy`, with 13-phase `DeepScanCoordinator`, pause/resume/cancel,
+  thermal auto-pause, battery-aware hashing and honest coverage reports.
+- **Deep scan engine** (`Engine/`): `VolumeDiscoveryService`,
+  `FileInventoryScanner`, `TraversalPolicy`, `MetadataCollector`,
+  `JunkClassifier` (SAFE/REVIEW/PROTECTED), `ApplicationInventoryService`
+  (fixes the previous ~2-app discovery bug), `ResidualCorrelationEngine`,
+  `DuplicatePipeline`, `ScanProgressAggregator`, `ScanCoverageReport`,
+  `ScanIndexStore` (SQLite, migrations, checkpoints, resume),
+  `IncrementalScanSupport` (public FSEvents), `CleanupPlanBuilder`,
+  `CleanupSafetyValidator`, `CleanupExecutor`, `IgnoreListStore`, `ScanGate`.
+- **Results workspace**: summary ring, tiles, category navigation,
+  virtualized item list, coverage inspector, sticky action bar with a
+  deliberate Preview-Mode control and second confirmation.
+- **Space Lens**: real hierarchical bubble visualization (Canvas circle
+  packing), hover-synchronized list, drill-in, breadcrumbs, back/forward,
+  "Other" aggregation for huge folders.
+- **Applications + Uninstaller**: inventory from /Applications,
+  ~/Applications, /System/Applications (read-only) and nested folders;
+  Mach-O architecture reading; signing and quarantine state; exact-ID
+  component matching; running-app protection.
+- **App Leftovers**, **Trash Bins**, **My Clutter**, **Large & Old Files**,
+  **System Junk**, **Smart Care**, **Deep Scan** modules.
+- **Security Audit** (FDA probe, quarantine flags, unsigned/broken agents —
+  no fake malware claims), **Performance** (thermal, memory/storage
+  pressure, sampled per-app CPU), **Permissions** (FDA onboarding with
+  likely/limited/not-determined/denied wording).
+- **Activity & History** with search, filter, JSON/CSV export, path
+  redaction and clear-with-confirmation.
+- **Sparkle 2** via Swift Package Manager with a configuration gate
+  (updates disabled in unsigned/placeholder builds), plus CI and release
+  workflows (Developer ID, notarization, stapling, `spctl` verification,
+  EdDSA-signed appcast) that fail loudly without secrets.
+- 60+ tests including a fixture end-to-end inventory→plan→preview→execute
+  flow, engine classification, residuals, SQLite index, Space Lens
+  aggregation and Mach-O parsing.
+
+### Changed
+
+- Startup Manager rewritten on SMAppService + supported locations (no
+  deprecated LSSharedFileList), with broken-reference detection.
+- Settings reorganized into General/Scanning/Safety/Permissions/Updates/
+  Advanced/About.
+- `Tools/generate_pbxproj.py` now generates the project deterministically.
+
 ## [1.0.0] - 2026-08-24
 
 ### Added

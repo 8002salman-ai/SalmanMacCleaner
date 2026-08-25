@@ -81,7 +81,7 @@ struct LargeFilesView: View {
             Spacer(minLength: 0)
         }
         .padding(20)
-        .navigationTitle(SidebarModule.largeFiles.title)
+        .navigationTitle(SidebarModule.largeOldFiles.title)
         .searchable(text: $viewModel.searchText, prompt: Text("search.items.prompt"))
         .toolbar {
             ToolbarItemGroup {

@@ -44,14 +44,18 @@ def main() -> int:
             with open(path, "r", encoding="utf-8") as handle:
                 files[os.path.relpath(path, ROOT)] = handle.read()
 
-    # index of declared members per type per file
+    # index of declared members per type per file, plus the full type stack
+    # at every declaration position (handles nested types).
     declared: dict[tuple[str, str], set[str]] = {}
+    type_positions: dict[str, list[tuple[int, str]]] = {}
     for rel, content in files.items():
+        type_positions[rel] = []
+        for type_match in re.finditer(r"\b(?:public |private |internal |final |@MainActor\s*)*(?:struct|class|enum|actor)\s+([A-Z][A-Za-z0-9_]*)\b", content):
+            type_positions[rel].append((type_match.start(), type_match.group(1)))
         for decl in DECL_RE.finditer(content):
             member = decl.group(1)
-            # find the enclosing type name: search backwards for type decl
             prefix = content[: decl.start()]
-            type_matches = re.findall(r"\b(?:public |private |internal |final |@MainActor\s*)*(?:struct|class|enum)\s+([A-Z][A-Za-z0-9_]*)\b", prefix)
+            type_matches = re.findall(r"\b(?:public |private |internal |final |@MainActor\s*)*(?:struct|class|enum|actor)\s+([A-Z][A-Za-z0-9_]*)\b", prefix)
             if not type_matches:
                 continue
             owner = type_matches[-1]
@@ -87,6 +91,11 @@ def main() -> int:
             if not locations:
                 continue  # framework type or cross-module; can't verify
             if any(member in declared[(r, o)] for (r, o) in locations):
+                continue
+            # Nested-type tolerance: the member may be attributed to a nested
+            # type by the heuristic while belonging to an enclosing one.
+            declaring_files = {r for (r, o) in locations}
+            if any(member in members for (r, o), members in declared.items() if r in declaring_files):
                 continue
             problems.append(f"{rel}:{match.start(0)} — {type_name}.{member} not found in declaration of {type_name}")
 

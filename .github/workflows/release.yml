@@ -1,0 +1,200 @@
+name: Release
+
+# Direct-distribution release pipeline: Developer ID signing, hardened
+# runtime, notarization, stapling, Gatekeeper verification, Sparkle appcast
+# generation with EdDSA signing, and a GitHub Release.
+#
+# Required secrets (GitHub → Settings → Secrets and variables → Actions):
+#   DEVELOPER_ID_APPLICATION_CERTIFICATE  base64 of the .p12 Developer ID Application cert
+#   DEVELOPER_ID_INSTALLER_CERTIFICATE    base64 of the .p12 Developer ID Installer cert (optional)
+#   CERTIFICATE_PASSWORD                  .p12 password
+#   APPLE_ID                              Apple ID for notarytool
+#   APPLE_APP_SPECIFIC_PASSWORD           App-specific password for notarytool
+#   APPLE_TEAM_ID                         Team ID for notarytool
+#   SPARKLE_ED25519_PRIVATE_KEY           base64 of the Sparkle Ed25519 private key
+#
+# The workflow FAILS (does not silently pass) whenever signing,
+# notarization or appcast signing is unavailable.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build (e.g. v1.1.0)'
+        required: true
+        default: 'v1.1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, sign, notarize and publish
+    runs-on: macos-14
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
+      - name: Fail fast when secrets are missing
+        env:
+          HAS_CERT: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE != '' }}
+          HAS_PASS: ${{ secrets.CERTIFICATE_PASSWORD != '' }}
+          HAS_ID: ${{ secrets.APPLE_ID != '' }}
+          HAS_PW: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD != '' }}
+          HAS_TEAM: ${{ secrets.APPLE_TEAM_ID != '' }}
+          HAS_KEY: ${{ secrets.SPARKLE_ED25519_PRIVATE_KEY != '' }}
+        run: |
+          if [ "$HAS_CERT" != "true" ] || [ "$HAS_PASS" != "true" ] || [ "$HAS_ID" != "true" ] || \
+             [ "$HAS_PW" != "true" ] || [ "$HAS_TEAM" != "true" ] || [ "$HAS_KEY" != "true" ]; then
+            echo "::error::Release signing requires DEVELOPER_ID_APPLICATION_CERTIFICATE, CERTIFICATE_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID and SPARKLE_ED25519_PRIVATE_KEY secrets."
+            exit 1
+          fi
+
+      - name: Install the Developer ID certificate
+        env:
+          CERT_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERT_BASE64" | base64 --decode > developer-id.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import developer-id.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
+          rm -f developer-id.p12
+          IDENTITY=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application" | head -1 | awk '{print $2}')
+          echo "IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -project SalmanMacCleaner.xcodeproj \
+            -scheme SalmanMacCleaner -resolvePackageDependencies
+
+      - name: Run tests
+        run: |
+          xcodebuild \
+            -project SalmanMacCleaner.xcodeproj \
+            -scheme SalmanMacCleaner \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            CODE_SIGNING_ALLOWED=NO \
+            test
+
+      - name: Archive (Release, arm64, hardened runtime)
+        run: |
+          xcodebuild \
+            -project SalmanMacCleaner.xcodeproj \
+            -scheme SalmanMacCleaner \
+            -configuration Release \
+            -destination 'platform=macOS,arch=arm64' \
+            -archivePath build/SalmanMacCleaner.xcarchive \
+            CODE_SIGN_IDENTITY="$IDENTITY" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}" \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
+            archive
+
+      - name: Verify signatures (nested components)
+        run: |
+          codesign --verify --deep --strict --verbose=2 build/SalmanMacCleaner.xcarchive/Products/Applications/SalmanMacCleaner.app
+          codesign -dv --verbose=4 build/SalmanMacCleaner.xcarchive/Products/Applications/SalmanMacCleaner.app
+
+      - name: Export app
+        run: |
+          mkdir -p dist
+          cp -R build/SalmanMacCleaner.xcarchive/Products/Applications/SalmanMacCleaner.app dist/
+
+      - name: Create release ZIP
+        run: |
+          ditto -c -k --keepParent dist/SalmanMacCleaner.app dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip
+          shasum -a 256 dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip | tee dist/checksums.txt
+
+      - name: Notarize (notarytool)
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Staple ticket
+        run: |
+          xcrun stapler staple dist/SalmanMacCleaner.app
+          ditto -c -k --keepParent dist/SalmanMacCleaner.app dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip
+          shasum -a 256 dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip | tee dist/checksums.txt
+
+      - name: Verify Gatekeeper acceptance
+        run: |
+          spctl --assess --type execute --verbose=4 dist/SalmanMacCleaner.app || \
+            (echo "::error::Gatekeeper rejected the build" && exit 1)
+
+      - name: Download Sparkle tools
+        run: |
+          curl -fsSL -o dist/Sparkle.tar.xz \
+            https://github.com/sparkle-project/Sparkle/releases/download/2.6.4/Sparkle-2.6.4.tar.xz
+          tar -xJf dist/Sparkle.tar.xz -C dist
+          cp dist/bin/generate_appcast dist/generate_appcast
+          cp dist/bin/sign_update dist/sign_update
+          chmod +x dist/generate_appcast dist/sign_update
+
+      - name: Generate and sign Sparkle appcast
+        env:
+          SPARKLE_KEY_BASE64: ${{ secrets.SPARKLE_ED25519_PRIVATE_KEY }}
+        run: |
+          echo "$SPARKLE_KEY_BASE64" | base64 --decode > dist/sparkle_ed25519.key
+          ARCHIVE="dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip"
+          ./dist/generate_appcast \
+            --ed-key-file dist/sparkle_ed25519.key \
+            --download-url-prefix "https://github.com/8002salman-ai/SalmanMacCleaner/releases/download/${{ steps.tag.outputs.tag }}/" \
+            -o dist/appcast.xml \
+            dist/
+          rm -f dist/sparkle_ed25519.key
+
+      - name: Publish appcast to the repository (stable feed URL)
+        run: |
+          cp dist/appcast.xml Support/appcast.xml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Support/appcast.xml
+          git commit -m "release: appcast for ${{ steps.tag.outputs.tag }}" || true
+          git push origin HEAD:main
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            "dist/SalmanMacCleaner-${{ steps.tag.outputs.version }}.zip" \
+            "dist/checksums.txt" \
+            "dist/appcast.xml" \
+            --repo 8002salman-ai/SalmanMacCleaner \
+            --title "Salman Mac Cleaner ${{ steps.tag.outputs.version }}" \
+            --notes-file CHANGELOG.md \
+            || true
+
+      - name: Fail if release was not created
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "${{ steps.tag.outputs.tag }}" \
+            --repo 8002salman-ai/SalmanMacCleaner > /dev/null 2>&1 || \
+            (echo "::error::GitHub release creation failed" && exit 1)
