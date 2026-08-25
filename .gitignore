@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+*.xcuserstate
+xcuserdata/
+DerivedData/
+build/
+*.xcresult
+
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Archives
+SalmanMacCleaner.zip
+__pycache__/
+*.pyc
+
+# GitHub workflows live in Support/workflows/ and are copied to
+# .github/workflows/ when CI is enabled (see Docs/ReleaseWorkflow.md).
+.github/workflows/
