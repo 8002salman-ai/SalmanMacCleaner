@@ -312,7 +312,9 @@ public struct ResultsWorkspaceView: View {
             bottomActionBar
         }
         .frame(minWidth: 980, minHeight: 680)
-        .background(AuroraBackground())
+        .background {
+            AuroraBackground { EmptyView() }
+        }
         .onAppear {
             model.load(outcome: outcome)
         }

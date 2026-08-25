@@ -282,7 +282,9 @@ public struct SpaceLensView: View {
             }
         }
         .frame(minWidth: 980, minHeight: 680)
-        .background(AuroraBackground())
+        .background {
+            AuroraBackground { EmptyView() }
+        }
     }
 
     // MARK: - Target Selector Bar
