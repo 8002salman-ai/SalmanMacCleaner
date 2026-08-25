@@ -27,9 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Moved items are removed from the results, evicted from the scan index
     and subtracted from the header totals; a cancelled run always ends the
     activity banner and records what actually ran.
-
-### Fixed
-
 - **Deep Scan "Items scanned: 1" defect.** Root causes, all fixed:
   - The directory enumerator yields the scan root itself first; it was
     recorded as a file (nil-defaulted `isDirectory`) and the first failed
