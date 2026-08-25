@@ -123,6 +123,8 @@ struct SettingsView: View {
             Text(permissionService.snapshot.coverageImpact)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Divider().overlay(Color.white.opacity(0.08))
+            AuthorizedFoldersSection(store: FolderAuthorizationsStore.shared)
         case .updates:
             Toggle("settings.auto_check_updates", isOn: $appState.settings.autoCheckUpdates)
                 .toggleStyle(.checkbox)

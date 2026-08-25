@@ -19,13 +19,15 @@ Salman Mac Cleaner is built to be the *safest* cleaner on your Mac. This documen
 
 | Layer | Protection |
 | --- | --- |
-| `TraversalPolicy` | FSEvents internals (`.fseventsd`, `.Spotlight-V100`), Time Machine, packages, hidden files, cross-volume descent, symlinks |
+| `TraversalPolicy` | FSEvents internals (`.fseventsd`, `.Spotlight-V100`), Time Machine, packages, hidden files, cross-volume descent (except the granted APFS system+data volume pair), symlinks; the scan root itself is never counted as a file and never prunes the scan |
 | `JunkClassifier` | Three-level classification — SAFE (allowlist + regenerable + not in use), REVIEW (never auto-selected), PROTECTED (hard-blocked) |
 | `ScanIndexStore` | SQLite persistence with schema migrations, checkpoints, root-granularity resume |
 | `IncrementalScanSupport` | Public FSEvents APIs only; event history invalidation forces full rescan; `.fseventsd` is never read |
 | `ResidualCorrelationEngine` | Exact bundle/container/preference/saved-state identifiers; loose substring matching forbidden |
 | `DuplicatePipeline` | Size → sample → streaming SHA-256 → inode identity; hard links never counted as reclaimable |
 | `VolumeDiscoveryService` | Network/cloud/read-only/external volumes require explicit opt-in; never descends into a second mounted volume |
+| `ScanPolicy` | Root grant model: home/library roots always granted; volume roots only with Full Disk Access/opt-in; `NSOpenPanel` + security-scoped bookmarks for user-authorized folders; opportunity roots that don't exist are dropped, not faked |
+| `ScanCoverageReport` | Per-root outcomes from real scanner results; not-granted/denied roots force "Limited coverage" with exact reasons; complete only after every intended accessible root was genuinely scanned |
 
 ## Protected data
 

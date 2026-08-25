@@ -57,6 +57,8 @@ public final class CleanupExecutor: ObservableObject {
     public func execute(
         plan: CleanupPlan,
         allowBundles: Bool = false,
+        libraryRoots: [String] = [],
+        reviewRoots: [String] = [],
         progress: @escaping (Double, String?) -> Void,
         isCancelled: @escaping () -> Bool
     ) async -> ExecutedCleanupResult {
@@ -75,7 +77,12 @@ public final class CleanupExecutor: ObservableObject {
             }
             progress(Double(index) / Double(total), item.path)
 
-            switch CleanupSafetyValidator.validate(item: item, allowBundles: allowBundles) {
+            switch CleanupSafetyValidator.validate(
+                item: item,
+                allowBundles: allowBundles,
+                libraryRoots: libraryRoots,
+                reviewRoots: reviewRoots
+            ) {
             case .failure(let failure):
                 result.failures.append((item.path, failure.localizedDescription))
                 continue

@@ -3,11 +3,15 @@
 //  SalmanMacCleaner
 //
 //  Deep Scan: the deepest honest scan macOS allows. Volume selector with
-//  explicit opt-ins, real thirteen-phase progress with pause/resume/cancel,
-//  coverage reporting and the results workspace.
+//  explicit opt-ins, security-scoped folder authorization ("Choose folders
+//  for Deep Scan"), real thirteen-phase progress with pause/resume/cancel,
+//  honest coverage reporting and the results workspace. Without Full Disk
+//  Access the volume roots are reported as skipped with an exact reason and
+//  the UI shows "Limited coverage" — never "complete".
 //
 
 import SwiftUI
+import AppKit
 
 struct DeepScanView: View {
     @EnvironmentObject private var appState: AppState
@@ -19,6 +23,7 @@ struct DeepScanView: View {
     @State private var outcome: ScanOutcome?
     @State private var scanTask: Task<Void, Never>?
     @State private var currentSnapshot: ScanProgressSnapshot?
+    @StateObject private var folderStore = FolderAuthorizationsStore.shared
 
     var body: some View {
         Group {
@@ -27,32 +32,41 @@ struct DeepScanView: View {
             } else if isScanning {
                 scanProgressView
             } else {
-                HeroScreenView(
-                    module: .deepScan,
-                    lastScanText: lastScanText,
-                    permissionWarning: permissionWarning,
-                    estimatedScope: NSLocalizedString("hero.deep_scan.scope", comment: ""),
-                    primaryAction: { runScan() },
-                    selectors: {
-                        VStack(alignment: .leading, spacing: 12) {
-                            VolumeSelector(selectedVolumeIDs: $selectedVolumeIDs, volumes: volumes)
-                            Toggle("settings.include_hidden", isOn: $includeHidden)
-                                .toggleStyle(.checkbox)
-                            Toggle("settings.include_packages", isOn: $includePackageContents)
-                                .toggleStyle(.checkbox)
-                        }
-                    }
-                )
-                .task {
-                    volumes = VolumeDiscoveryService.discoverVolumes()
-                    if selectedVolumeIDs.isEmpty {
-                        selectedVolumeIDs = Set(volumes.filter { !$0.requiresOptIn }.prefix(1).map { $0.mountPoint })
-                    }
-                }
+                hero
             }
         }
         .onDisappear {
             scanTask?.cancel()
+        }
+    }
+
+    private var hero: some View {
+        HeroScreenView(
+            module: .deepScan,
+            lastScanText: lastScanText,
+            permissionWarning: permissionWarning,
+            estimatedScope: NSLocalizedString("hero.deep_scan.scope", comment: ""),
+            primaryAction: { runScan() },
+            selectors: {
+                VStack(alignment: .leading, spacing: 12) {
+                    VolumeSelector(selectedVolumeIDs: $selectedVolumeIDs, volumes: volumes)
+                    Toggle("settings.include_hidden", isOn: $includeHidden)
+                        .toggleStyle(.checkbox)
+                    Toggle("settings.include_packages", isOn: $includePackageContents)
+                        .toggleStyle(.checkbox)
+                    Divider().overlay(Color.white.opacity(0.08))
+                    AuthorizedFoldersSection(store: folderStore)
+                }
+            }
+        )
+        .task {
+            volumes = VolumeDiscoveryService.discoverVolumes()
+            if selectedVolumeIDs.isEmpty {
+                selectedVolumeIDs = Set(volumes.filter { !$0.requiresOptIn }.prefix(1).map { $0.mountPoint })
+            }
+            if PermissionService.shared.snapshot.lastCheck == .distantPast {
+                PermissionService.shared.recheck()
+            }
         }
     }
 
@@ -127,9 +141,15 @@ struct DeepScanView: View {
     }
 
     private var permissionWarning: String? {
-        PermissionService.shared.snapshot.fullDiskAccess == .likelyFullAccess
-            ? nil
-            : NSLocalizedString("hero.deep_scan.permission", comment: "")
+        let status = PermissionService.shared.snapshot.fullDiskAccess
+        switch status {
+        case .likelyFullAccess:
+            return nil
+        case .limitedAccess, .accessDenied:
+            return NSLocalizedString("hero.deep_scan.permission", comment: "")
+        case .notDetermined:
+            return NSLocalizedString("hero.deep_scan.permission_not_determined", comment: "")
+        }
     }
 
     private func privacyTruncated(_ path: String) -> String {
@@ -147,8 +167,15 @@ struct DeepScanView: View {
             includePackageContents: includePackageContents,
             hashDuplicates: true
         )
+        // Security-scoped bookmarks stay active for the whole scan.
+        let authorizedFolders = folderStore.activateScopes()
         appState.beginActivity(.scanning(detail: NSLocalizedString("hero.action.start_deep_scan", comment: "")))
-        let stream = DeepScanCoordinator.shared.start(scope: scope, settings: appState.settings, volumes: volumes)
+        let stream = DeepScanCoordinator.shared.start(
+            scope: scope,
+            settings: appState.settings,
+            volumes: volumes,
+            authorizedFolders: authorizedFolders
+        )
 
         scanTask = Task {
             for await event in stream {
@@ -161,10 +188,12 @@ struct DeepScanView: View {
                 case .outcome(let result):
                     isScanning = false
                     outcome = result
+                    appState.lastOutcome = result
+                    folderStore.deactivateScopes()
                     appState.sessionStore.recordScan(ScanHistoryRecord(
                         date: result.finishedAt,
                         mode: result.mode.rawValue,
-                        scope: scope.volumes.joined(separator: ", "),
+                        scope: (scope.volumes + authorizedFolders.map { $0.path }).joined(separator: ", "),
                         duration: result.finishedAt.timeIntervalSince(result.startedAt),
                         itemsScanned: result.itemsScanned,
                         coveragePercent: ScanCoverageReport.coveragePercent(result.coverage),
@@ -176,6 +205,7 @@ struct DeepScanView: View {
                     appState.endActivity(message: result.coverage.summaryText)
                 case .failed(let message):
                     isScanning = false
+                    folderStore.deactivateScopes()
                     appState.endActivity(error: message)
                 case .coverageUpdated, .inventoryBatch:
                     break

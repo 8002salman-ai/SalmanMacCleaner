@@ -17,7 +17,10 @@ public enum CleanupPlanBuilder {
         records: [FileRecord],
         containmentRoot: String,
         previewOnly: Bool,
-        scanID: Int64? = nil
+        scanID: Int64? = nil,
+        libraryRoots: [String] = [],
+        reviewRoots: [String] = [],
+        allowBundles: Bool = false
     ) -> CleanupPlan {
         let selectedPaths = Set(selection.map { URL(fileURLWithPath: $0.path).standardizedFileURL.path })
         let recordByPath = Dictionary(uniqueKeysWithValues: records.map { ($0.path, $0) })
@@ -29,17 +32,30 @@ public enum CleanupPlanBuilder {
             let record = recordByPath[canonical]
 
             // Only SAFE and REVIEW items may enter a plan; PROTECTED items
-            // are rejected by the validator, never planned.
-            let verdict = record.map {
-                JunkClassifier.classify($0)
-            } ?? JunkVerdict(
-                category: .unknown,
-                safety: .review,
-                reason: NSLocalizedString("classify.reason.no_record", comment: ""),
-                autoSelectable: false,
-                regenerable: false,
-                sourceRule: "selection"
-            )
+            // are rejected by the validator, never planned. Application
+            // bundles are admitted only for the explicit uninstaller flow.
+            let verdict: JunkVerdict
+            if allowBundles && PathSafety.isAppBundle(canonical) {
+                verdict = JunkVerdict(
+                    category: .unknown,
+                    safety: .review,
+                    reason: NSLocalizedString("classify.reason.uninstall_bundle", comment: ""),
+                    autoSelectable: false,
+                    regenerable: false,
+                    sourceRule: "uninstaller-bundle"
+                )
+            } else {
+                verdict = record.map {
+                    JunkClassifier.classify($0, libraryRoots: libraryRoots, reviewRoots: reviewRoots)
+                } ?? JunkVerdict(
+                    category: .unknown,
+                    safety: .review,
+                    reason: NSLocalizedString("classify.reason.no_record", comment: ""),
+                    autoSelectable: false,
+                    regenerable: false,
+                    sourceRule: "selection"
+                )
+            }
             guard verdict.safety != .protected else { continue }
 
             items.append(PlannedCleanupItem(

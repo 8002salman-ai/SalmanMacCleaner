@@ -562,11 +562,18 @@ public struct CoverageReport: Codable, Equatable {
     public var skippedMounts: [String]
     public var skippedNetworkVolumes: [String]
     public var skippedTimeMachine: [String]
+    public var notGrantedRoots: [String]
+    public var rootDetails: [RootCoverageDetail]
     public var symlinksRejected: Int
     public var filesChangedDuringScan: Int
     public var totalErrors: Int
     public var deniedPaths: Int
     public var confidence: CoverageConfidence
+    /// True when any requested root was not granted or denied access —
+    /// drives the "Limited coverage" warning in the UI.
+    public var limitedByPermission: Bool
+    /// Exact reason the coverage is limited (localized).
+    public var permissionReason: String?
 
     public init(requestedRoots: [String] = [],
                 scannedRoots: [String] = [],
@@ -576,11 +583,15 @@ public struct CoverageReport: Codable, Equatable {
                 skippedMounts: [String] = [],
                 skippedNetworkVolumes: [String] = [],
                 skippedTimeMachine: [String] = [],
+                notGrantedRoots: [String] = [],
+                rootDetails: [RootCoverageDetail] = [],
                 symlinksRejected: Int = 0,
                 filesChangedDuringScan: Int = 0,
                 totalErrors: Int = 0,
                 deniedPaths: Int = 0,
-                confidence: CoverageConfidence = .unknown) {
+                confidence: CoverageConfidence = .unknown,
+                limitedByPermission: Bool = false,
+                permissionReason: String? = nil) {
         self.requestedRoots = requestedRoots
         self.scannedRoots = scannedRoots
         self.partialRoots = partialRoots
@@ -589,20 +600,28 @@ public struct CoverageReport: Codable, Equatable {
         self.skippedMounts = skippedMounts
         self.skippedNetworkVolumes = skippedNetworkVolumes
         self.skippedTimeMachine = skippedTimeMachine
+        self.notGrantedRoots = notGrantedRoots
+        self.rootDetails = rootDetails
         self.symlinksRejected = symlinksRejected
         self.filesChangedDuringScan = filesChangedDuringScan
         self.totalErrors = totalErrors
         self.deniedPaths = deniedPaths
         self.confidence = confidence
+        self.limitedByPermission = limitedByPermission
+        self.permissionReason = permissionReason
     }
 
     /// Precise human wording — never "Entire Mac scanned" unless true.
     public var summaryText: String {
         var lines: [String] = []
-        if deniedRoots.isEmpty && partialRoots.isEmpty && totalErrors == 0 {
+        if deniedRoots.isEmpty && partialRoots.isEmpty && notGrantedRoots.isEmpty && totalErrors == 0 {
             lines.append(NSLocalizedString("coverage.all_accessible", comment: ""))
         } else {
-            lines.append(String(format: NSLocalizedString("coverage.some_inaccessible", comment: ""), deniedRoots.count + partialRoots.count))
+            lines.append(String(format: NSLocalizedString("coverage.some_inaccessible", comment: ""),
+                                deniedRoots.count + partialRoots.count + notGrantedRoots.count))
+        }
+        if limitedByPermission {
+            lines.append(NSLocalizedString("coverage.limited_warning", comment: ""))
         }
         if !sipProtectedRoots.isEmpty {
             lines.append(NSLocalizedString("coverage.sip_note", comment: ""))

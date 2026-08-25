@@ -314,7 +314,8 @@ struct UninstallerView: View {
                     selection: items.map { ScannedItem(path: $0.path, size: $0.size) },
                     records: items.compactMap { MetadataCollector.collect(url: URL(fileURLWithPath: $0.path)) },
                     containmentRoot: root,
-                    previewOnly: previewOnly
+                    previewOnly: previewOnly,
+                    allowBundles: true
                 ),
                 allowBundles: true,
                 progress: { fraction, detail in

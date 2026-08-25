@@ -5,6 +5,54 @@ All notable changes to Salman Mac Cleaner are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-08-25
+
+### Fixed
+
+- **Deep Scan "Items scanned: 1" defect.** Root causes, all fixed:
+  - The directory enumerator yields the scan root itself first; it was
+    recorded as a file (nil-defaulted `isDirectory`) and the first failed
+    root validation pruned the whole subtree via `skipDescendants()`.
+    Roots are now never counted and never prune the scan; `isDirectory`
+    comes from `lstat` ground truth.
+  - `PathSafety.validate` rejected every non-home path and every data-
+    volume path (APFS system/data device split) as cross-volume. A root
+    grant model now distinguishes granted roots (home, user Library,
+    security-scoped authorized folders) from not-granted roots (volume
+    roots without Full Disk Access), and the granted system+data volume
+    pair is one device group.
+  - Coverage outcomes were optimistically set to "scanned" before the
+    scan ran. Coverage is now built exclusively from the real per-root
+    scanner results; not-granted/denied roots are listed with exact
+    reasons and force "Limited coverage" in the UI — "complete" is only
+    ever reported after genuine traversal.
+  - Junk classification treated any path containing "Library"/"Caches"/
+    "Logs" as protected, so all cache candidates were PROTECTED ("Zero KB
+    candidates"). Classification is now driven by the scan's actual
+    root tables (library/review roots), with protected-component checks
+    limited to top-level personal folders and VCS trees.
+- Quick/Balanced/Deep roots redesigned: Quick keeps high-value junk
+  locations; Balanced adds the full home; Deep adds home + volume roots
+  (FDA-gated) + /Applications (readable, FDA-gated) + authorized folders.
+- Incremental scans now respect the user setting; opportunity roots that
+  don't exist are dropped instead of reported as denied.
+
+### Added
+
+- **"Choose folders for Deep Scan"**: `NSOpenPanel` + persisted
+  security-scoped bookmarks (`FolderAuthorizationsStore`), managed in the
+  Deep Scan hero and Settings → Permissions; scopes stay active for the
+  scan duration.
+- Root-by-root coverage details with state, reason and per-root denied
+  counts in the results workspace; "Limited coverage" pill + Full Disk
+  Access deep-link; honest zero-candidates explanation.
+- `Tools/verify_deepscan.sh` — build + regression-suite + manual GUI
+  verification checklist.
+- `DeepScanRegressionTests` (10 tests): multi-file fixture inventories,
+  root-never-counted regression, fixture cache/log SAFE classification,
+  protected-file skipping, unreadable/missing roots never "scanned",
+  limited-vs-complete coverage, root grant matrix.
+
 ## [1.1.0] - 2026-08-25
 
 ### Added

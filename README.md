@@ -49,6 +49,15 @@ never faked.
   default; external/network/cloud volumes require explicit opt-in), apps,
   leftovers, staged duplicate hashing and a storage map. 13 real phases,
   pause/resume/cancel, thermal-pressure auto-pause, honest coverage report.
+
+  **Root grant model:** the user home and user-Library cache/log roots are
+  always granted; volume roots (`/`, external drives) are granted only when
+  Full Disk Access is plausibly available (or the user explicitly opts in);
+  `NSOpenPanel` + security-scoped bookmarks let the user authorize Desktop,
+  Documents, Downloads and external folders ("Choose folders for Deep
+  Scan"). Roots that are not granted are listed in the coverage report with
+  the exact reason and the summary shows **Limited coverage** — the app
+  never claims "complete" without genuinely traversing the roots.
 - **Custom Scan** — volumes, folders, categories, hidden files, package
   contents, hashing, minimum size/age, inventory-only mode.
 

@@ -7,6 +7,15 @@
 //  tree in memory. Cooperative cancellation, pause/resume via ScanGate,
 //  graceful handling of files that disappear mid-scan.
 //
+//  Correctness guarantees (regressions fixed here):
+//  - The DirectoryEnumerator yields the scan root itself first; the root
+//    item is never recorded as a file and never pruned the whole scan via
+//    skipDescendants().
+//  - isDirectory comes from lstat ground truth, not a nil-defaulting
+//    URLResourceValues lookup.
+//  - Each root returns an honest outcome (scanned / partial / denied with a
+//    reason); the caller builds coverage from these, never optimistically.
+//
 
 import Foundation
 
@@ -20,6 +29,16 @@ public struct InventoryCounts: Codable, Equatable {
     public var changedDuringScan: Int = 0
 
     public init() {}
+
+    public mutating func merge(_ other: InventoryCounts) {
+        files += other.files
+        folders += other.folders
+        bytesIndexed += other.bytesIndexed
+        denied += other.denied
+        errors += other.errors
+        symlinksRejected += other.symlinksRejected
+        changedDuringScan += other.changedDuringScan
+    }
 }
 
 public enum InventoryScannerError: LocalizedError, Equatable {
@@ -32,14 +51,29 @@ public enum InventoryScannerError: LocalizedError, Equatable {
     }
 }
 
+/// The honest per-root result of one root traversal.
+public struct RootScanResult: Equatable {
+    public var root: String
+    public var outcome: RootOutcome
+    public var counts: InventoryCounts
+
+    public init(root: String, outcome: RootOutcome, counts: InventoryCounts) {
+        self.root = root
+        self.outcome = outcome
+        self.counts = counts
+    }
+}
+
 /// Scans a set of roots, streaming `FileRecord`s to a sink.
 public struct FileInventoryScanner {
 
     public typealias RecordSink = (FileRecord) -> Void
+    public typealias RootedRecordSink = (FileRecord, ScanRoot) -> Void
     public typealias CountSink = (InventoryCounts, String?) -> Void
 
     /// - Parameters:
-    ///   - roots: Validated scan roots.
+    ///   - roots: Granted scan roots (not-granted roots must be excluded by
+    ///     the caller and reported separately in the coverage report).
     ///   - includeHidden: Whether dot-files are recorded.
     ///   - includePackageContents: Whether package internals are traversed.
     ///   - minFileSize: Files below this size are still traversed but not recorded.
@@ -48,24 +82,43 @@ public struct FileInventoryScanner {
     ///   - gate: Pause/resume control.
     ///   - isCancelled: Polled frequently.
     public static func scan(
-        roots: [URL],
+        roots: [ScanRoot],
         includeHidden: Bool,
         includePackageContents: Bool,
         minFileSize: Int64,
-        sink: @escaping RecordSink,
+        sink: @escaping RootedRecordSink,
         counts: @escaping CountSink,
         gate: ScanGate,
         isCancelled: @escaping () -> Bool
-    ) async throws -> InventoryCounts {
+    ) async throws -> [RootScanResult] {
         var totals = InventoryCounts()
+        var results: [RootScanResult] = []
         let batchSize = 250
 
         for root in roots {
             if isCancelled() { throw InventoryScannerError.cancelled }
             await gate.waitIfPaused()
-            let rootPath = root.standardizedFileURL.path
-            guard let device = VolumeDiscoveryService.deviceID(ofMountPoint: rootPath) else {
-                totals.errors += 1
+            let rootPath = root.url.standardizedFileURL.path
+
+            // Not-granted roots are never scanned here; they are reported
+            // by the coordinator's coverage layer.
+            guard root.granted else {
+                results.append(RootScanResult(
+                    root: rootPath,
+                    outcome: .skippedNotGranted(root.notGrantedReason ?? NSLocalizedString("coverage.root.not_granted", comment: "")),
+                    counts: InventoryCounts()
+                ))
+                continue
+            }
+
+            // Honest probe before claiming anything.
+            let probe = TraversalPolicy.probeRoot(root)
+            guard probe.readable else {
+                results.append(RootScanResult(
+                    root: rootPath,
+                    outcome: .denied(probe.reason ?? NSLocalizedString("coverage.root.unreadable", comment: "")),
+                    counts: InventoryCounts()
+                ))
                 continue
             }
 
@@ -78,10 +131,15 @@ public struct FileInventoryScanner {
                     return true
                 }
             ) else {
-                totals.denied += 1
+                results.append(RootScanResult(
+                    root: rootPath,
+                    outcome: .denied(NSLocalizedString("coverage.root.unreadable", comment: "")),
+                    counts: InventoryCounts()
+                ))
                 continue
             }
 
+            var rootCounts = InventoryCounts()
             var pendingRecords: [FileRecord] = []
 
             for case let url as URL in enumerator {
@@ -95,20 +153,34 @@ public struct FileInventoryScanner {
                 }
 
                 let path = url.standardizedFileURL.path
-                guard let values = try? url.resourceValues(forKeys: Set(MetadataCollector.prefetchedKeys)) else {
-                    totals.changedDuringScan += 1
+
+                // The enumerator yields the scan root itself first. The root
+                // is never a candidate file and must never prune the scan.
+                if path == rootPath {
                     continue
                 }
 
-                let isDirectory = values.isDirectory ?? false
-                let isSymlink = values.isSymbolicLink ?? false
+                guard let values = try? url.resourceValues(forKeys: Set(MetadataCollector.prefetchedKeys)) else {
+                    rootCounts.changedDuringScan += 1
+                    continue
+                }
 
-                if isDirectory && !isSymlink {
-                    totals.folders += 1
+                let isSymlink = values.isSymbolicLink ?? false
+                // lstat ground truth; never treat "unknown" as a file.
+                let kind = PathSafety.kind(of: path)
+                let isDirectory = kind == .directory
+
+                if isSymlink {
+                    rootCounts.symlinksRejected += 1
+                    enumerator.skipDescendants()
+                    continue
+                }
+
+                if isDirectory {
+                    rootCounts.folders += 1
                     let decision = TraversalPolicy.shouldEnterDirectory(
                         url: url,
-                        root: rootPath,
-                        rootDevice: device,
+                        root: root,
                         includeHidden: includeHidden,
                         includePackageContents: includePackageContents,
                         scope: ScanScope(mode: .deep)
@@ -117,48 +189,97 @@ public struct FileInventoryScanner {
                     case .include:
                         continue
                     case .skip(let reason):
-                        if reason == .suspiciousLink { totals.symlinksRejected += 1 }
+                        if reason == .suspiciousLink { rootCounts.symlinksRejected += 1 }
+                        if reason == .denied || reason == .otherUserFile || reason == .protectedLocation {
+                            rootCounts.denied += 1
+                        }
                         enumerator.skipDescendants()
                         continue
                     }
                 }
 
-                if isSymlink {
-                    totals.symlinksRejected += 1
-                    continue
-                }
-
                 guard let record = MetadataCollector.collect(url: url, values: values) else {
-                    totals.changedDuringScan += 1
+                    rootCounts.changedDuringScan += 1
                     continue
                 }
+                guard record.isDirectory == false else { continue }
 
-                if record.logicalSize < minFileSize && !record.isDirectory {
+                let decision = TraversalPolicy.shouldRecordFile(
+                    url: url,
+                    root: root,
+                    includeHidden: includeHidden,
+                    minSize: minFileSize
+                )
+                switch decision {
+                case .skip(let reason):
+                    if reason == .denied || reason == .otherUserFile || reason == .protectedLocation {
+                        rootCounts.denied += 1
+                    }
                     continue
+                case .include:
+                    break
                 }
 
-                totals.files += 1
-                totals.bytesIndexed += record.logicalSize
+                rootCounts.files += 1
+                rootCounts.bytesIndexed += record.logicalSize
                 pendingRecords.append(record)
 
                 if pendingRecords.count >= batchSize {
-                    flush(&pendingRecords, sink: sink)
+                    flush(&pendingRecords, sink: sink, root: root)
+                    totals.merge(rootCounts)
+                    rootCounts = InventoryCounts()
                     counts(totals, path)
                     await Task.yield()
                 }
             }
 
             if !pendingRecords.isEmpty {
-                flush(&pendingRecords, sink: sink)
-                counts(totals, rootPath)
+                flush(&pendingRecords, sink: sink, root: root)
             }
+            totals.merge(rootCounts)
+            counts(totals, rootPath)
+
+            let outcome: RootOutcome = rootCounts.denied > 0 || rootCounts.errors > 0
+                ? .partial(deniedPaths: rootCounts.denied, errors: rootCounts.errors)
+                : .scanned
+            results.append(RootScanResult(root: rootPath, outcome: outcome, counts: rootCounts))
+        }
+        return results
+    }
+
+    /// Compatibility wrapper for callers with plain URL roots (tests,
+    /// folder-scoped flows). URLs are treated as granted authorized folders.
+    public static func scan(
+        roots: [URL],
+        includeHidden: Bool,
+        includePackageContents: Bool,
+        minFileSize: Int64,
+        sink: @escaping RecordSink,
+        counts: @escaping CountSink,
+        gate: ScanGate,
+        isCancelled: @escaping () -> Bool
+    ) async throws -> InventoryCounts {
+        let scanRoots = roots.map { ScanPolicy.authorizedFolderRoot($0) }
+        let results = try await scan(
+            roots: scanRoots,
+            includeHidden: includeHidden,
+            includePackageContents: includePackageContents,
+            minFileSize: minFileSize,
+            sink: { record, _ in sink(record) },
+            counts: counts,
+            gate: gate,
+            isCancelled: isCancelled
+        )
+        var totals = InventoryCounts()
+        for result in results {
+            totals.merge(result.counts)
         }
         return totals
     }
 
-    private static func flush(_ batch: inout [FileRecord], sink: RecordSink) {
+    private static func flush(_ batch: inout [FileRecord], sink: RootedRecordSink, root: ScanRoot) {
         for record in batch {
-            sink(record)
+            sink(record, root)
         }
         batch.removeAll(keepingCapacity: true)
     }

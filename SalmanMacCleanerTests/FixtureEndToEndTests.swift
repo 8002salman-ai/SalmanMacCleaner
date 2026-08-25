@@ -69,11 +69,12 @@ final class FixtureEndToEndTests: XCTestCase {
         let protectedRecord = records.first { $0.path.hasSuffix("data.sqlite") }
         XCTAssertNotNil(cacheRecord)
         XCTAssertNotNil(protectedRecord)
+        let libraryRoots = [fixture.path + "/caches"]
         if let cacheRecord {
-            XCTAssertEqual(JunkClassifier.classify(cacheRecord).safety, .safe)
+            XCTAssertEqual(JunkClassifier.classify(cacheRecord, libraryRoots: libraryRoots).safety, .safe)
         }
         if let protectedRecord {
-            XCTAssertEqual(JunkClassifier.classify(protectedRecord).safety, .protected)
+            XCTAssertEqual(JunkClassifier.classify(protectedRecord, libraryRoots: libraryRoots).safety, .protected)
         }
 
         // 5. Build the plan from an explicit selection (both cache files).
@@ -85,7 +86,8 @@ final class FixtureEndToEndTests: XCTestCase {
             records: records,
             containmentRoot: fixture.path,
             previewOnly: true,
-            scanID: nil
+            scanID: nil,
+            libraryRoots: libraryRoots
         )
         XCTAssertEqual(plan.items.count, 2)
 
@@ -101,7 +103,8 @@ final class FixtureEndToEndTests: XCTestCase {
             records: records,
             containmentRoot: fixture.path,
             previewOnly: false,
-            scanID: nil
+            scanID: nil,
+            libraryRoots: libraryRoots
         )
         let executed = await CleanupExecutor.shared.execute(plan: realPlan, progress: { _, _ in }, isCancelled: { false })
         XCTAssertGreaterThanOrEqual(executed.moved.count, 0)

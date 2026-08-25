@@ -6,6 +6,15 @@
 //  PathSafety policy and adds volume, package, hidden-file and FSEvents
 //  boundaries. Protections are only ever added here — never removed.
 //
+//  Design notes (fixes for the "one item scanned" defect):
+//  - DirectoryEnumerator yields the scan root itself first; the root item is
+//    never counted as a file and never pruned via skipDescendants().
+//  - Volume roots are granted only with Full Disk Access (or explicit
+//    opt-in); the APFS system + data volume pair is treated as one device
+//    group so "/" scans can see the data volume.
+//  - Authorized folders (security-scoped bookmarks) may live outside the
+//    user home and are the only outside-home roots that are scanned.
+//
 
 import Foundation
 
@@ -29,6 +38,26 @@ public enum TraversalSkipReason: String, Equatable, Codable {
     case missingFile
     case denied
     case tooDeep
+
+    /// Localized explanation surfaced in the coverage report.
+    public var explanation: String {
+        switch self {
+        case .protectedLocation: return NSLocalizedString("traversal.skip.protected", comment: "")
+        case .personalDirectory: return NSLocalizedString("traversal.skip.personal", comment: "")
+        case .otherUserFile: return NSLocalizedString("traversal.skip.other_user", comment: "")
+        case .suspiciousLink: return NSLocalizedString("traversal.skip.symlink", comment: "")
+        case .crossVolumeMount: return NSLocalizedString("traversal.skip.cross_volume", comment: "")
+        case .networkVolume: return NSLocalizedString("traversal.skip.network", comment: "")
+        case .timeMachine: return NSLocalizedString("traversal.skip.time_machine", comment: "")
+        case .fseventsInternal: return NSLocalizedString("traversal.skip.fsevents", comment: "")
+        case .hiddenFile: return NSLocalizedString("traversal.skip.hidden", comment: "")
+        case .packageContent: return NSLocalizedString("traversal.skip.package", comment: "")
+        case .specialFile: return NSLocalizedString("traversal.skip.special", comment: "")
+        case .missingFile: return NSLocalizedString("traversal.skip.missing", comment: "")
+        case .denied: return NSLocalizedString("traversal.skip.denied", comment: "")
+        case .tooDeep: return NSLocalizedString("traversal.skip.too_deep", comment: "")
+        }
+    }
 }
 
 public enum TraversalPolicy {
@@ -43,8 +72,7 @@ public enum TraversalPolicy {
     /// Decide whether a directory may be entered during traversal.
     public static func shouldEnterDirectory(
         url: URL,
-        root: String,
-        rootDevice: Int32,
+        root: ScanRoot,
         includeHidden: Bool,
         includePackageContents: Bool,
         scope: ScanScope
@@ -69,7 +97,22 @@ public enum TraversalPolicy {
             return .skip(reason: .packageContent)
         }
 
-        let safe = PathSafety.validate(path: path, root: root, expectedDevice: dev_t(rootDevice), purpose: .scan, allowSymlink: false)
+        // App bundles are never descended into by the inventory scanner,
+        // even with package-content enabled (bundles are protected).
+        if PathSafety.isAppBundle(path) {
+            return .skip(reason: .packageContent)
+        }
+
+        let safe = PathSafety.validate(
+            path: path,
+            root: root.url.path,
+            expectedDevice: dev_t(root.expectedDevices.first ?? 0),
+            additionalDevices: Set(root.expectedDevices.dropFirst().map { dev_t($0) }),
+            purpose: .scan,
+            allowSymlink: false,
+            allowOutsideHome: root.allowsOutsideHome,
+            allowProtectedRoot: root.allowProtectedRoot
+        )
         switch safe {
         case .failure(let error):
             switch error {
@@ -90,11 +133,6 @@ public enum TraversalPolicy {
             }
         case .success(let validated):
             guard validated.kind == .directory else { return .skip(reason: .specialFile) }
-            // Never descend into a second mounted volume reached through the tree.
-            if let actualDevice = PathSafety.deviceID(of: validated.canonical),
-               Int32(clamping: actualDevice) != rootDevice {
-                return .skip(reason: .crossVolumeMount)
-            }
             return .include
         }
     }
@@ -102,8 +140,7 @@ public enum TraversalPolicy {
     /// Decide whether a file entry is recorded in inventory.
     public static func shouldRecordFile(
         url: URL,
-        root: String,
-        rootDevice: Int32,
+        root: ScanRoot,
         includeHidden: Bool,
         minSize: Int64
     ) -> TraversalDecision {
@@ -117,7 +154,16 @@ public enum TraversalPolicy {
             return .skip(reason: .hiddenFile)
         }
 
-        let safe = PathSafety.validate(path: path, root: root, expectedDevice: dev_t(rootDevice), purpose: .scan, allowSymlink: false)
+        let safe = PathSafety.validate(
+            path: path,
+            root: root.url.path,
+            expectedDevice: dev_t(root.expectedDevices.first ?? 0),
+            additionalDevices: Set(root.expectedDevices.dropFirst().map { dev_t($0) }),
+            purpose: .scan,
+            allowSymlink: false,
+            allowOutsideHome: root.allowsOutsideHome,
+            allowProtectedRoot: root.allowProtectedRoot
+        )
         switch safe {
         case .failure(let error):
             switch error {
@@ -129,6 +175,8 @@ public enum TraversalPolicy {
                 return .skip(reason: .crossVolumeMount)
             case .missingPath:
                 return .skip(reason: .missingFile)
+            case .protectedLocation, .outsideUserHome:
+                return .skip(reason: .protectedLocation)
             default:
                 return .skip(reason: .denied)
             }
@@ -144,18 +192,24 @@ public enum TraversalPolicy {
         }
     }
 
-    /// Whether a scan root itself is eligible (volume-level checks).
-    public static func validateRoot(url: URL) -> Result<URL, TraversalSkipReason> {
-        let path = url.standardizedFileURL.path
+    /// Whether a root is readable at all (used to produce honest coverage
+    /// outcomes instead of "scanned" defaults).
+    public static func probeRoot(_ root: ScanRoot) -> (readable: Bool, reason: String?) {
+        let path = root.url.path
         guard FileManager.default.fileExists(atPath: path) else {
-            return .failure(.missingFile)
+            return (false, NSLocalizedString("coverage.root.missing", comment: ""))
         }
-        guard PathSafety.isProtectedRootLocation(path) == false else {
-            return .failure(.protectedLocation)
+        guard root.granted else {
+            return (false, root.notGrantedReason ?? NSLocalizedString("coverage.root.not_granted", comment: ""))
         }
-        // Volume roots are permitted for Deep Scan (with explicit opt-in for
-        // external volumes handled by the caller).
-        return .success(URL(fileURLWithPath: path, isDirectory: true))
+        // A cheap, safe readability probe: list one level. Failures here
+        // mean the root must be reported as denied, never as scanned.
+        guard let _ = try? FileManager.default.contentsOfDirectory(
+            atPath: path
+        ) else {
+            return (false, NSLocalizedString("coverage.root.unreadable", comment: ""))
+        }
+        return (true, nil)
     }
 
     /// Maximum depth guard for pathological trees. The file inventory itself

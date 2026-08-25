@@ -7,6 +7,13 @@
 //  SAFE, and a narrow set of well-understood locations become REVIEW.
 //  Inventory and cleanup eligibility are strictly separate concepts.
 //
+//  Fix for "zero candidates" regression: the blanket protected-component
+//  check treated ANY path containing "Library"/"Caches"/"Logs" as protected,
+//  which made every real cache candidate PROTECTED. The component check now
+//  only fires for top-level personal folders and version-control trees;
+//  cache/log classification is driven by the explicit root tables the scan
+//  actually used (`libraryRoots` / `reviewRoots`).
+//
 
 import Foundation
 
@@ -16,37 +23,6 @@ public enum JunkClassifier {
     public static let systemJunkCategories: Set<String> = [
         "userCache", "userLog", "crashReport", "diagnosticReport", "savedState",
         "tempFile", "updateRemnant", "brokenAlias", "brokenLoginItem", "brokenPreference"
-    ]
-
-    /// Strong allowlist: directory suffixes that make a file SAFE when other
-    /// guards (ownership, age, size, not-in-use) pass.
-    private static let safeDirectorySuffixes: [String] = [
-        "/Library/Caches",
-        "/Library/Logs",
-        "/Library/Logs/DiagnosticReports",
-        "/Library/Saved Application State",
-        "/.cache",
-        "/.npm/_cacache",
-        "/Library/Caches/Homebrew",
-        "/Library/Caches/pip",
-        "/Library/Caches/Yarn",
-        "/Library/Caches/pnpm",
-        "/Library/Caches/CocoaPods",
-        "/Library/Developer/CoreSimulator/Caches"
-    ]
-
-    /// REVIEW locations: potentially useful, never auto-selected.
-    private static let reviewDirectorySuffixes: [String] = [
-        "/Library/Developer/Xcode/DerivedData",
-        "/Library/Developer/Xcode/Archives",
-        "/Library/Developer/Xcode/iOS DeviceSupport",
-        "/Library/Developer/CoreSimulator",
-        "/Library/Developer/CoreSimulator/Caches",
-        "/.gradle",
-        "/.m2/repository",
-        "/.cargo/registry",
-        "/Library/org.swift.swiftpm",
-        "/Library/Caches/org.swift.swiftpm"
     ]
 
     /// File suffixes that are PROTECTED regardless of location.
@@ -70,32 +46,69 @@ public enum JunkClassifier {
     ]
 
     /// Classify one inventory record.
-    public static func classify(_ record: FileRecord, now: Date = Date()) -> JunkVerdict {
+    ///
+    /// - Parameters:
+    ///   - libraryRoots: roots scanned as SAFE junk locations (user caches,
+    ///     logs, saved states). The scan plan provides the real roots; tests
+    ///     pass fixture equivalents.
+    ///   - reviewRoots: roots scanned as REVIEW locations (developer caches,
+    ///     archives, simulator data).
+    ///   - context: what kind of scan produced the record.
+    public static func classify(
+        _ record: FileRecord,
+        libraryRoots: [String] = [],
+        reviewRoots: [String] = [],
+        context: ClassificationContext = .default,
+        now: Date = Date()
+    ) -> JunkVerdict {
         let path = record.path
         let name = record.name
+
+        // When the caller does not pass the scan's actual root tables
+        // (cleanup revalidation, isolated callers), fall back to the
+        // standard home tables.
+        let effectiveLibraryRoots = libraryRoots.isEmpty
+            ? ScanPolicy.quickLibraryRoots(home: PathSafety.userHome)
+            : libraryRoots
+        let effectiveReviewRoots = reviewRoots.isEmpty
+            ? ScanPolicy.defaultReviewRoots(home: PathSafety.userHome)
+            : reviewRoots
 
         // 1. Hard protections first — nothing else may override these.
         if let verdict = hardProtection(record, path: path, name: name) {
             return verdict
         }
 
-        // 2. Protected classification (personal data, credentials, …).
+        // 2. Protected classification (personal folders, credentials, VCS).
         if let verdict = protectedClassification(record, path: path, name: name) {
             return verdict
         }
 
-        // 3. Review-only well-understood locations.
-        if let verdict = reviewClassification(record, path: path, now: now) {
+        // 3. REVIEW roots — potentially useful, never auto-selected.
+        if let verdict = reviewClassification(record, path: path, reviewRoots: effectiveReviewRoots, now: now) {
             return verdict
         }
 
-        // 4. SAFE allowlist: regenerable cache/log/temp content owned by the
+        // 4. SAFE allowlist roots: regenerable cache/log content owned by the
         //    user, old enough and not in active use.
-        if let verdict = safeClassification(record, path: path, name: name, now: now) {
+        if let verdict = safeClassification(record, path: path, name: name, libraryRoots: effectiveLibraryRoots, now: now) {
             return verdict
         }
 
-        // 5. Default: unknown files are protected.
+        // 5. Files inside a user-authorized folder are review-only: the user
+        //    asked to look at them, the app never assumes they are junk.
+        if context == .authorizedFolder {
+            return JunkVerdict(
+                category: .largeFile,
+                safety: .review,
+                reason: NSLocalizedString("classify.reason.user_folder", comment: ""),
+                autoSelectable: false,
+                regenerable: false,
+                sourceRule: "user-authorized-folder"
+            )
+        }
+
+        // 6. Default: unknown files are protected.
         return JunkVerdict(
             category: .unknown,
             safety: .protected,
@@ -104,6 +117,13 @@ public enum JunkClassifier {
             regenerable: false,
             sourceRule: "default"
         )
+    }
+
+    /// What kind of scan produced the record.
+    public enum ClassificationContext: Equatable {
+        case `default`
+        case authorizedFolder
+        case volumeRoot
     }
 
     // MARK: - Layers
@@ -164,21 +184,36 @@ public enum JunkClassifier {
                 sourceRule: "personal-directory"
             )
         }
-        if PathSafety.containsProtectedComponent(path) {
+        if PathSafety.containsTopLevelProtectedComponent(path) {
+            return JunkVerdict(
+                category: .unknown,
+                safety: .protected,
+                reason: NSLocalizedString("classify.reason.personal", comment: ""),
+                autoSelectable: false,
+                regenerable: false,
+                sourceRule: "top-level-personal"
+            )
+        }
+        if PathSafety.containsVersionControlOrStoreComponent(path) {
             return JunkVerdict(
                 category: .unknown,
                 safety: .protected,
                 reason: NSLocalizedString("classify.reason.protected_component", comment: ""),
                 autoSelectable: false,
                 regenerable: false,
-                sourceRule: "protected-component"
+                sourceRule: "version-control"
             )
         }
         return nil
     }
 
-    private static func reviewClassification(_ record: FileRecord, path: String, now: Date) -> JunkVerdict? {
-        for suffix in reviewDirectorySuffixes where path.hasPrefix(PathSafety.userHome.path + suffix) {
+    private static func reviewClassification(
+        _ record: FileRecord,
+        path: String,
+        reviewRoots: [String],
+        now: Date
+    ) -> JunkVerdict? {
+        if let matchedRoot = firstRoot(containing: path, among: reviewRoots) {
             let category = reviewCategory(for: path)
             return JunkVerdict(
                 category: category,
@@ -201,35 +236,57 @@ public enum JunkClassifier {
                 sourceRule: "installer"
             )
         }
+        _ = matchedRoot
         return nil
     }
 
-    private static func safeClassification(_ record: FileRecord, path: String, name: String, now: Date) -> JunkVerdict? {
-        for suffix in safeDirectorySuffixes where path.hasPrefix(PathSafety.userHome.path + suffix) {
-            let category = cacheCategory(for: path, name: name)
-            let age = record.modified ?? .distantPast
-            let ageDays = now.timeIntervalSince(age) / 86_400
-            guard ageDays >= 1 else {
-                // Recently used cache files are not offered as junk.
-                return JunkVerdict(
-                    category: category,
-                    safety: .protected,
-                    reason: NSLocalizedString("classify.reason.in_use", comment: ""),
-                    autoSelectable: false,
-                    regenerable: true,
-                    sourceRule: "in-use-cache"
-                )
-            }
+    private static func safeClassification(
+        _ record: FileRecord,
+        path: String,
+        name: String,
+        libraryRoots: [String],
+        now: Date
+    ) -> JunkVerdict? {
+        guard firstRoot(containing: path, among: libraryRoots) != nil else {
+            return nil
+        }
+        let category = cacheCategory(for: path, name: name)
+        let age = record.modified ?? .distantPast
+        let ageDays = now.timeIntervalSince(age) / 86_400
+        guard ageDays >= 1 else {
+            // Recently used cache files are not offered as junk.
             return JunkVerdict(
                 category: category,
-                safety: .safe,
-                reason: String(format: NSLocalizedString("classify.reason.safe_cache", comment: ""), category.title),
-                autoSelectable: true,
+                safety: .protected,
+                reason: NSLocalizedString("classify.reason.in_use", comment: ""),
+                autoSelectable: false,
                 regenerable: true,
-                sourceRule: "safe-cache"
+                sourceRule: "in-use-cache"
             )
         }
-        return nil
+        return JunkVerdict(
+            category: category,
+            safety: .safe,
+            reason: String(format: NSLocalizedString("classify.reason.safe_cache", comment: ""), category.title),
+            autoSelectable: true,
+            regenerable: true,
+            sourceRule: "safe-cache"
+        )
+    }
+
+    /// The longest root (if any) that contains `path`.
+    private static func firstRoot(containing path: String, among roots: [String]) -> String? {
+        let standardized = path.hasSuffix("/") && path != "/" ? String(path.dropLast()) : path
+        var best: String?
+        for root in roots {
+            let normalizedRoot = root.hasSuffix("/") && root != "/" ? String(root.dropLast()) : root
+            if standardized == normalizedRoot || standardized.hasPrefix(normalizedRoot + "/") {
+                if best == nil || normalizedRoot.count > best!.count {
+                    best = normalizedRoot
+                }
+            }
+        }
+        return best
     }
 
     // MARK: - Category mapping
@@ -255,7 +312,7 @@ public enum JunkClassifier {
         if path.contains("/Yarn") { return .yarnCache }
         if path.contains("/pnpm") { return .pnpmCache }
         if path.contains("/CocoaPods") { return .cocoapodsCache }
-        if path.contains("/_cacache") { return .npmCache }
+        if path.contains("/_cacache") || path.hasSuffix("/.npm") { return .npmCache }
         if name.lowercased().hasPrefix("temp") || name.lowercased().hasSuffix(".tmp") {
             return .tempFile
         }

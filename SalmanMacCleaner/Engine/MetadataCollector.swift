@@ -37,8 +37,12 @@ public enum MetadataCollector {
             resolvedValues = (try? url.resourceValues(forKeys: Set(prefetchedKeys))) ?? URLResourceValues()
         }
 
-        let isDir = resolvedValues.isDirectory ?? false
-        let isLink = resolvedValues.isSymbolicLink ?? ((statBuffer.st_mode & S_IFMT) == S_IFLNK)
+        // lstat ground truth — never infer "file" from a nil resource value.
+        let statKind = PathSafety.kind(of: path)
+        let isDir = statKind == .directory
+        let isLink = statKind == .symlinkToFile || statKind == .symlinkToDirectory
+            || (resolvedValues.isSymbolicLink ?? false)
+            || ((statBuffer.st_mode & S_IFMT) == S_IFLNK)
         let logical = Int64(resolvedValues.fileSize ?? 0)
         let allocated = allocatedSize(values: resolvedValues, stat: statBuffer)
         let hidden = resolvedValues.isHidden ?? path.hasPrefix(".")

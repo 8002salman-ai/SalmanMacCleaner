@@ -202,6 +202,35 @@ public enum PathSafety {
         return false
     }
 
+    /// Protected components that are only meaningful at the *top level* of
+    /// the user home (personal folders, Public). Deep tree positions of the
+    /// same names are not treated as protected here — e.g. a folder named
+    /// "Downloads" inside a project is not the user's Downloads directory.
+    public static func containsTopLevelProtectedComponent(_ path: String) -> Bool {
+        let home = userHome.path
+        guard path.hasPrefix(home + "/") else { return false }
+        let relative = String(path.dropFirst(home.count + 1))
+        guard let firstComponent = relative.split(separator: "/").first else { return false }
+        let personalAndTopLevel: Set<String> = [
+            "Desktop", "Documents", "Downloads", "Pictures", "Music", "Movies", "Public"
+        ]
+        return personalAndTopLevel.contains(String(firstComponent))
+    }
+
+    /// Version-control and cache-store directories that are protected
+    /// wherever they appear in a tree.
+    public static func containsVersionControlOrStoreComponent(_ path: String) -> Bool {
+        let versionControl: Set<String> = [".git", ".svn", ".hg", ".bzr", ".idea", ".vscode"]
+        let components = path.split(separator: "/").map(String.init)
+        for component in components {
+            if versionControl.contains(component) { return true }
+            if component.hasSuffix(".xcodeproj") || component.hasSuffix(".xcworkspace") || component == ".swiftpm" {
+                return true
+            }
+        }
+        return false
+    }
+
     /// True when the final component of `path` is one of the personal
     /// directories (Desktop, Documents, …) — i.e. the directory itself.
     public static func isPersonalDirectory(_ path: String) -> Bool {
@@ -377,14 +406,32 @@ public enum PathSafety {
 
     /// Validate a candidate path against `root`. Applies, in order:
     /// existence, lexical containment, parent-symlink canonicalization,
-    /// symlink target containment, user-home containment, protected roots,
-    /// ownership and (optionally) mount/device checks.
+    /// symlink target containment, user-home containment (unless explicitly
+    /// waived for a granted scan root), protected roots, ownership and
+    /// (optionally) mount/device checks against the allowed device set.
+    ///
+    /// - Parameters:
+    ///   - allowOutsideHome: scan roots that the user explicitly authorized
+    ///     (volume roots with Full Disk Access, security-scoped folders)
+    ///     pass `true`; cleanup and default scanning keep the strict home
+    ///     containment.
+    ///   - expectedDevice: primary device; files on other devices are
+    ///     rejected unless listed in `additionalDevices`.
+    ///   - additionalDevices: the device set that a granted root may span
+    ///     (e.g. the APFS system + data volume pair behind "/").
+    ///   - allowProtectedRoot: grants an explicit root that itself lives in
+    ///     the protected-roots table (only used for the user-authorized
+    ///     /Applications inventory root); descendants still face every
+    ///     other check.
     public static func validate(
         path: String,
         root: String,
         expectedDevice: dev_t? = nil,
+        additionalDevices: Set<dev_t> = [],
         purpose: FilePurpose = .scan,
-        allowSymlink: Bool = false
+        allowSymlink: Bool = false,
+        allowOutsideHome: Bool = false,
+        allowProtectedRoot: Bool = false
     ) -> Result<ValidatedPath, PathSafetyError> {
         let candidate = URL(fileURLWithPath: path).standardizedFileURL.path
 
@@ -415,14 +462,20 @@ public enum PathSafety {
             }
         }
 
-        // 4. User-home containment (nothing outside the home, ever).
-        guard isInsideUserHome(canonical) else {
+        // 4. User-home containment. Strict for cleanup and default scans;
+        // waived only for granted volume roots and authorized folders.
+        if !allowOutsideHome && !isInsideUserHome(canonical) {
             return .failure(.outsideUserHome(canonical))
         }
 
-        // 5. Protected root locations (defense in depth for the home check).
-        guard !isProtectedRootLocation(canonical) else {
-            return .failure(.protectedLocation(canonical))
+        // 5. Protected root locations (defense in depth). The granted root
+        // itself may sit in this table (e.g. /Applications) but everything
+        // beneath it must still pass the other checks.
+        let rootStandardized = root.hasSuffix("/") && root != "/" ? String(root.dropLast()) : root
+        if canonical != rootStandardized || !allowProtectedRoot {
+            if isProtectedRootLocation(canonical) {
+                return .failure(.protectedLocation(canonical))
+            }
         }
 
         // 6. Ownership: other-user files (including root) are rejected.
@@ -433,8 +486,10 @@ public enum PathSafety {
             return .failure(.ownershipMismatch(uid: owner, expected: currentUID))
         }
 
-        // 7. Device boundary: never cross onto a mounted volume.
-        if let expected = expectedDevice, let actual = deviceID(of: canonicalLeaf), actual != expected {
+        // 7. Device boundary: never cross onto a mounted volume. A granted
+        // volume root may span its own device group (system + data pair).
+        if let expected = expectedDevice, let actual = deviceID(of: canonicalLeaf),
+           actual != expected, !additionalDevices.contains(actual) {
             return .failure(.crossVolumeMount(canonicalLeaf))
         }
 

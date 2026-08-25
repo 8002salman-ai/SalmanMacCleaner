@@ -10,6 +10,14 @@
 //    ScanProgressAggregator
 //  - thermal pressure pauses the scan automatically
 //
+//  Honesty guarantees (regressions fixed here):
+//  - Roots are only ever marked "scanned" after the scanner really
+//    traversed them; not-granted roots (no Full Disk Access, no opt-in)
+//    appear as "skipped — not granted" with an exact reason, and coverage
+//    is reported as Limited.
+//  - Counts come exclusively from the real per-root results; nothing is
+//    fabricated.
+//
 
 import Foundation
 import AppKit
@@ -93,10 +101,12 @@ public final class DeepScanCoordinator: ObservableObject {
     // MARK: - Scan
 
     /// Start a scan. Returns the event stream consumed by the UI.
+    /// `authorizedFolders` carries the security-scoped folder grants.
     public func start(
         scope: ScanScope,
         settings: SettingsStore,
-        volumes: [VolumeInfo]? = nil
+        volumes: [VolumeInfo]? = nil,
+        authorizedFolders: [URL] = []
     ) -> AsyncStream<ScanEvent> {
         cancel()
         let token = UUID()
@@ -114,6 +124,7 @@ public final class DeepScanCoordinator: ObservableObject {
                         scope: scope,
                         settings: settings,
                         volumes: volumes,
+                        authorizedFolders: authorizedFolders,
                         store: store,
                         gate: gate,
                         emit: { event in
@@ -141,6 +152,7 @@ public final class DeepScanCoordinator: ObservableObject {
         scope: ScanScope,
         settings: SettingsStore,
         volumes: [VolumeInfo]?,
+        authorizedFolders: [URL],
         store: ScanIndexStore,
         gate: ScanGate,
         emit: @escaping (ScanEvent) -> Void
@@ -162,20 +174,41 @@ public final class DeepScanCoordinator: ObservableObject {
         // Phase 1: permissions.
         await emitPhase(.preparingPermissions)
         let fdaStatus = PermissionService.probeFullDiskAccess()
-        _ = fdaStatus
         await emitProgress(force: true)
 
-        // Phase 2: volumes.
+        // Phase 2: volumes + root resolution with honest grant states.
         await emitPhase(.discoveringVolumes)
         let discoveredVolumes = volumes ?? VolumeDiscoveryService.discoverVolumes()
-        let plan = ScanPolicy.resolve(scope: scope, volumes: discoveredVolumes)
+        let plan = ScanPolicy.resolve(
+            scope: scope,
+            volumes: discoveredVolumes,
+            fdaStatus: fdaStatus,
+            authorizedFolders: authorizedFolders
+        )
 
-        // Coverage: root-level outcomes for volumes that were skipped.
-        var rootOutcomes: [String: RootOutcome] = [:]
-        for root in plan.roots {
-            rootOutcomes[root.path] = .scanned
+        // Opportunity roots that do not exist on this machine are dropped
+        // from the requested set (they are not "denied" — they are absent).
+        let requestedRoots = plan.roots.filter { root in
+            if root.optional && !FileManager.default.fileExists(atPath: root.url.path) {
+                return false
+            }
+            return true
         }
-        for volume in discoveredVolumes where !plan.roots.contains(where: { $0.path == volume.mountPoint }) {
+
+        // Coverage: roots that were requested but not granted are recorded
+        // up front — with the exact reason — and NEVER marked scanned.
+        var rootOutcomes: [String: RootOutcome] = [:]
+        for root in requestedRoots {
+            if root.granted {
+                rootOutcomes[root.url.path] = .scanned // replaced by the real result below
+            } else {
+                rootOutcomes[root.url.path] = .skippedNotGranted(
+                    root.notGrantedReason ?? NSLocalizedString("coverage.root.not_granted", comment: "")
+                )
+            }
+        }
+        // Volumes not part of the plan are reported with their skip reason.
+        for volume in discoveredVolumes where !plan.roots.contains(where: { $0.url.path == volume.mountPoint }) {
             if !volume.isLocal {
                 rootOutcomes[volume.mountPoint] = .skippedNetwork
             } else if VolumeDiscoveryService.isTimeMachineVolume(volume) {
@@ -186,26 +219,29 @@ public final class DeepScanCoordinator: ObservableObject {
         }
         await emitProgress(force: true)
 
-        // Incremental decision (public FSEvents only).
+        // Incremental decision (public FSEvents only, and only when the
+        // user enabled incremental scans).
         var provenance = ScanProvenance.full
-        var inventoryRoots = plan.roots
-        if scope.isIncrementalCandidate, let firstRoot = plan.roots.first {
-            if let device = VolumeDiscoveryService.deviceID(ofMountPoint: firstRoot.path),
-               let lastEventID = await store.lastEventID(forMountPoint: firstRoot.path),
-               let changed = IncrementalScanSupport.collectChangedDirectories(root: firstRoot.path, sinceEventID: lastEventID) {
+        var inventoryRoots = requestedRoots.filter { $0.granted }
+        if settings.incrementalScans, scope.isIncrementalCandidate, let firstRoot = inventoryRoots.first {
+            if VolumeDiscoveryService.deviceID(ofMountPoint: firstRoot.url.path) != nil,
+               let lastEventID = await store.lastEventID(forMountPoint: firstRoot.url.path),
+               let changed = IncrementalScanSupport.collectChangedDirectories(root: firstRoot.url.path, sinceEventID: lastEventID) {
                 if !changed.paths.isEmpty {
-                    let changedURLs = changed.paths.map { URL(fileURLWithPath: $0, isDirectory: true) }
-                    inventoryRoots = changedURLs
+                    let changedRoots = changed.paths.map {
+                        ScanPolicy.authorizedFolderRoot(URL(fileURLWithPath: $0, isDirectory: true))
+                    }
+                    inventoryRoots = changedRoots
                     provenance = .incremental
                 }
                 if let newest = changed.newestEventID {
-                    try? await store.saveEventState(mountPoint: firstRoot.path, lastEventID: newest)
+                    try? await store.saveEventState(mountPoint: firstRoot.url.path, lastEventID: newest)
                 }
             }
         }
 
         // Phase 3 + 4: inventory with metadata (prefetched resource keys).
-        await emitPhase(.buildingInventory, detail: plan.roots.first?.path)
+        await emitPhase(.buildingInventory, detail: inventoryRoots.first?.url.path)
         var localBatch: [FileRecord] = []
         var classifiedBatch: [(FileRecord, JunkVerdict)] = []
         var safeBytes: Int64 = 0
@@ -218,63 +254,75 @@ public final class DeepScanCoordinator: ObservableObject {
         do {
             var totals = InventoryCounts()
             let flushes = FlushCoordinator()
-            for root in inventoryRoots {
-                if Task.isCancelled { throw CancellationError() }
-                let rootTotals = try await FileInventoryScanner.scan(
-                    roots: [root],
-                    includeHidden: plan.includeHidden,
-                    includePackageContents: plan.includePackageContents,
-                    minFileSize: plan.minFileSize,
-                    sink: { record in
-                        localBatch.append(record)
-                        let verdict = JunkClassifier.classify(record)
-                        classifiedBatch.append((record, verdict))
-                        switch verdict.safety {
-                        case .safe:
-                            safeBytes += record.allocatedSize
-                            candidateBytes += record.allocatedSize
-                        case .review:
-                            reviewBytes += record.allocatedSize
-                            candidateBytes += record.allocatedSize
-                        case .protected:
-                            protectedBytes += record.allocatedSize
+            let results = try await FileInventoryScanner.scan(
+                roots: inventoryRoots,
+                includeHidden: plan.includeHidden,
+                includePackageContents: plan.includePackageContents,
+                minFileSize: plan.minFileSize,
+                sink: { record, root in
+                    localBatch.append(record)
+                    let context: JunkClassifier.ClassificationContext
+                    switch root.kind {
+                    case .authorizedFolder: context = .authorizedFolder
+                    case .volumeRoot: context = .volumeRoot
+                    default: context = .default
+                    }
+                    let verdict = JunkClassifier.classify(
+                        record,
+                        libraryRoots: plan.libraryRoots,
+                        reviewRoots: plan.reviewRoots,
+                        context: context
+                    )
+                    classifiedBatch.append((record, verdict))
+                    switch verdict.safety {
+                    case .safe:
+                        safeBytes += record.allocatedSize
+                        candidateBytes += record.allocatedSize
+                    case .review:
+                        reviewBytes += record.allocatedSize
+                        candidateBytes += record.allocatedSize
+                    case .protected:
+                        protectedBytes += record.allocatedSize
+                    }
+                    if record.allocatedSize > 0, depth(of: record.path, under: root.url.path) <= 2 {
+                        let key = parentKey(of: record.path, root: root.url.path)
+                        mapAccumulator[key, default: 0] += record.allocatedSize
+                        if mapAccumulator.count > 5000 {
+                            mapAccumulator.removeAll()
                         }
-                        if record.allocatedSize > 0, depth(of: record.path, under: root.path) <= 2 {
-                            let key = parentKey(of: record.path, root: root.path)
-                            mapAccumulator[key, default: 0] += record.allocatedSize
-                            if mapAccumulator.count > 5000 {
-                                mapAccumulator.removeAll()
-                            }
+                    }
+                    if localBatch.count >= 500 {
+                        flushes.enqueue(
+                            flushToStore(store, scanID: scanID, records: localBatch, verdicts: classifiedBatch)
+                        )
+                        localBatch.removeAll(keepingCapacity: true)
+                        classifiedBatch.removeAll(keepingCapacity: true)
+                    }
+                },
+                counts: { snapshot, currentPath in
+                    totals = snapshot
+                    Task {
+                        await aggregator.merge(counts: snapshot)
+                        await aggregator.setCurrentPath(currentPath)
+                        if let progress = await aggregator.snapshot() {
+                            emit(.progress(progress))
                         }
-                        if localBatch.count >= 500 {
-                            flushes.enqueue(
-                                flushToStore(store, scanID: scanID, records: localBatch, verdicts: classifiedBatch)
-                            )
-                            localBatch.removeAll(keepingCapacity: true)
-                            classifiedBatch.removeAll(keepingCapacity: true)
+                        // Thermal pressure pauses the scan automatically.
+                        let thermal = ProcessInfo.processInfo.thermalState
+                        if thermal == .serious || thermal == .critical {
+                            await gate.pause()
+                            emit(.phaseChanged(ScanPhase.buildingInventory, detail: NSLocalizedString("scan.paused_thermal", comment: "")))
                         }
-                    },
-                    counts: { snapshot, currentPath in
-                        totals = snapshot
-                        Task {
-                            await aggregator.merge(counts: snapshot)
-                            await aggregator.setCurrentPath(currentPath)
-                            if let progress = await aggregator.snapshot() {
-                                emit(.progress(progress))
-                            }
-                            // Thermal pressure pauses the scan automatically.
-                            let thermal = ProcessInfo.processInfo.thermalState
-                            if thermal == .serious || thermal == .critical {
-                                await gate.pause()
-                                emit(.phaseChanged(ScanPhase.buildingInventory, detail: NSLocalizedString("scan.paused_thermal", comment: "")))
-                            }
-                        }
-                    },
-                    gate: gate,
-                    isCancelled: { Task.isCancelled }
-                )
-                totals = rootTotals
-                try? await store.markRootState(scanID: scanID, root: root.path, state: "completed")
+                    }
+                },
+                gate: gate,
+                isCancelled: { Task.isCancelled }
+            )
+
+            // Replace optimistic outcomes with the scanner's real results.
+            for result in results {
+                rootOutcomes[result.root] = result.outcome
+                totals.merge(result.counts)
             }
 
             if !localBatch.isEmpty {
@@ -302,8 +350,6 @@ public final class DeepScanCoordinator: ObservableObject {
 
             // Phase 7: correlate resources.
             await emitPhase(.correlatingResources)
-            let correlatedCount = applications.count
-            _ = correlatedCount
             await emitProgress(force: true)
 
             // Phase 8: leftovers.
@@ -313,7 +359,7 @@ public final class DeepScanCoordinator: ObservableObject {
 
             // Phase 9: duplicate candidates from the persisted index.
             await emitPhase(.groupingDuplicates)
-            let candidates = try await store.duplicateCandidates(scanID: scanID, limit: 20_000)
+            let candidates = await store.duplicateCandidates(scanID: scanID, limit: 20_000)
             var duplicateGroups: [DuplicateCandidateGroup] = []
             var duplicateBytesEstimate: Int64 = 0
 
@@ -333,11 +379,6 @@ public final class DeepScanCoordinator: ObservableObject {
 
             // Phase 11: storage map summary (top-level allocated sizes).
             await emitPhase(.buildingStorageMap)
-            let mapSummary = mapAccumulator
-                .sorted { $0.value > $1.value }
-                .prefix(200)
-                .map { StorageMapEntry(name: $0.key, bytes: $0.value) }
-            _ = mapSummary
             await emitProgress(force: true)
 
             // Phase 12: reclaimable space.
@@ -345,14 +386,11 @@ public final class DeepScanCoordinator: ObservableObject {
             await aggregator.addCandidateBytes(candidateBytes)
             await emitProgress(force: true)
 
-            // Phase 13: finalize.
+            // Phase 13: finalize — coverage from the real outcomes.
             await emitPhase(.finalizingSafety)
             let coverage = ScanCoverageReport.build(
-                requestedRoots: plan.roots.map { $0.path },
-                outcomes: rootOutcomes,
-                symlinksRejected: totals.symlinksRejected,
-                filesChangedDuringScan: totals.changedDuringScan,
-                totalErrors: totals.errors
+                requestedRoots: requestedRoots.map { $0.url.path },
+                outcomes: rootOutcomes
             )
             let outcome = ScanOutcome(
                 scanID: scanID,
@@ -370,7 +408,7 @@ public final class DeepScanCoordinator: ObservableObject {
                 leftoverGroupCount: leftovers.count,
                 duplicateGroupCount: duplicateGroups.count,
                 duplicateBytesEstimate: duplicateBytesEstimate,
-                storageMapRoot: plan.roots.first?.path
+                storageMapRoot: plan.roots.first?.url.path
             )
             try await store.completeScan(scanID: scanID, outcome: outcome, counts: totals, coverage: coverage)
             emit(.coverageUpdated(coverage))

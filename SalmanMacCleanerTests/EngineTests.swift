@@ -13,14 +13,19 @@ import XCTest
 
 final class TraversalPolicyTests: XCTestCase {
 
+    private func root(_ url: URL) -> ScanRoot {
+        ScanPolicy.authorizedFolderRoot(url)
+    }
+
     func testProtectedAndInternalLocationsAreSkipped() {
         let scope = ScanScope(mode: .deep)
-        let root = PathSafety.userHome.path
+        let home = PathSafety.userHome
+        let root = root(home)
 
         for name in TraversalPolicy.alwaysSkippedDirectoryNames {
-            let url = URL(fileURLWithPath: root + "/" + name, isDirectory: true)
+            let url = URL(fileURLWithPath: home.path + "/" + name, isDirectory: true)
             let decision = TraversalPolicy.shouldEnterDirectory(
-                url: url, root: root, rootDevice: 1, includeHidden: true,
+                url: url, root: root, includeHidden: true,
                 includePackageContents: false, scope: scope
             )
             if case .skip(let reason) = decision {
@@ -37,7 +42,7 @@ final class TraversalPolicyTests: XCTestCase {
         let hiddenURL = home.appendingPathComponent(".hidden-thing", isDirectory: true)
 
         let hiddenDenied = TraversalPolicy.shouldEnterDirectory(
-            url: hiddenURL, root: home.path, rootDevice: 1, includeHidden: false,
+            url: hiddenURL, root: root(home), includeHidden: false,
             includePackageContents: false, scope: scope
         )
         if case .skip(let reason) = hiddenDenied {
@@ -53,7 +58,7 @@ final class TraversalPolicyTests: XCTestCase {
         let appURL = home.appendingPathComponent("Some.app", isDirectory: true)
 
         let decision = TraversalPolicy.shouldEnterDirectory(
-            url: appURL, root: home.path, rootDevice: 1, includeHidden: true,
+            url: appURL, root: root(home), includeHidden: true,
             includePackageContents: false, scope: scope
         )
         if case .skip = decision {
@@ -221,39 +226,61 @@ final class CoverageReportTests: XCTestCase {
     func testCompleteCoverageWording() {
         let report = ScanCoverageReport.build(
             requestedRoots: ["/Users/test"],
-            outcomes: ["/Users/test": .scanned],
-            symlinksRejected: 3,
-            filesChangedDuringScan: 1,
-            totalErrors: 0
+            outcomes: ["/Users/test": .scanned]
         )
         XCTAssertEqual(report.confidence, .complete)
         XCTAssertEqual(ScanCoverageReport.coveragePercent(report), 100)
         XCTAssertTrue(report.summaryText.contains("Scanned all accessible files"))
+        XCTAssertFalse(report.limitedByPermission)
     }
 
     func testPartialCoverageWording() {
         let report = ScanCoverageReport.build(
             requestedRoots: ["/", "/Volumes/ext"],
-            outcomes: ["/": .partial(deniedPaths: 12, errors: 2), "/Volumes/ext": .denied],
-            symlinksRejected: 0,
-            filesChangedDuringScan: 0,
-            totalErrors: 2
+            outcomes: ["/": .partial(deniedPaths: 12, errors: 2), "/Volumes/ext": .denied("readable check failed")]
         )
         XCTAssertEqual(report.confidence, .partial)
         XCTAssertEqual(ScanCoverageReport.coveragePercent(report), 50)
         XCTAssertTrue(report.summaryText.contains("inaccessible"))
+        XCTAssertTrue(report.limitedByPermission)
+        XCTAssertFalse(report.permissionReason?.isEmpty ?? true)
     }
 
     func testSIPNoteAppears() {
         let report = ScanCoverageReport.build(
             requestedRoots: ["/System", "/Users/x"],
-            outcomes: ["/System": .sipProtected, "/Users/x": .scanned],
-            symlinksRejected: 0,
-            filesChangedDuringScan: 0,
-            totalErrors: 0
+            outcomes: ["/System": .sipProtected, "/Users/x": .scanned]
         )
         XCTAssertTrue(report.summaryText.contains("System Integrity Protection"))
         XCTAssertEqual(report.sipProtectedRoots, ["/System"])
+    }
+
+    func testNotGrantedRootIsNeverCompleteAndLimitsCoverage() {
+        // Regression: a root that was skipped because permission was missing
+        // must produce "Limited coverage" — never "complete".
+        let report = ScanCoverageReport.build(
+            requestedRoots: ["/Users/test", "/"],
+            outcomes: [
+                "/Users/test": .scanned,
+                "/": .skippedNotGranted("Full Disk Access not granted")
+            ]
+        )
+        XCTAssertTrue(report.limitedByPermission)
+        XCTAssertEqual(report.notGrantedRoots, ["/"])
+        XCTAssertNotEqual(report.confidence, .complete)
+        XCTAssertTrue(report.summaryText.contains("Limited coverage"))
+        XCTAssertEqual(report.rootDetails.count, 2)
+        XCTAssertEqual(report.rootDetails.first { $0.root == "/" }?.state, .skippedNotGranted)
+        XCTAssertEqual(report.rootDetails.first { $0.root == "/" }?.reason, "Full Disk Access not granted")
+    }
+
+    func testCoverageCompleteOnlyWhenAllRequestedRootsScanned() {
+        let report = ScanCoverageReport.build(
+            requestedRoots: ["/Users/test"],
+            outcomes: ["/Users/test": .scanned]
+        )
+        XCTAssertFalse(report.limitedByPermission)
+        XCTAssertEqual(report.confidence, .complete)
     }
 }
 

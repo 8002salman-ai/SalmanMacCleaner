@@ -40,7 +40,9 @@ public enum CleanupSafetyValidator {
     /// Validate one planned item right before execution.
     public static func validate(
         item: PlannedCleanupItem,
-        allowBundles: Bool
+        allowBundles: Bool,
+        libraryRoots: [String] = [],
+        reviewRoots: [String] = []
     ) -> Result<PlannedCleanupItem, ValidationFailure> {
         guard item.action.isAvailable else {
             return .failure(.unsafe(item.path))
@@ -104,7 +106,7 @@ public enum CleanupSafetyValidator {
         guard let record = MetadataCollector.collect(url: URL(fileURLWithPath: validated.canonical, isDirectory: validated.kind == .directory)) else {
             return .failure(.missing(item.path))
         }
-        let verdict = JunkClassifier.classify(record)
+        let verdict = JunkClassifier.classify(record, libraryRoots: libraryRoots, reviewRoots: reviewRoots)
         guard verdict.safety != .protected else {
             return .failure(.protectedName(item.path))
         }

@@ -194,6 +194,25 @@ public struct ResultsWorkspaceView: View {
                 HStack(spacing: 8) {
                     StatusPill("results.provenance.\(outcome.provenance.rawValue)", kind: .info)
                     StatusPill("results.coverage.\(outcome.coverage.confidence.rawValue)", kind: coverageKind)
+                    if outcome.coverage.limitedByPermission {
+                        StatusPill("results.coverage.limited", kind: .warning)
+                    }
+                }
+                if outcome.coverage.limitedByPermission {
+                    Text(outcome.coverage.permissionReason ?? "coverage.limited.reason_not_granted")
+                        .font(.caption)
+                        .foregroundStyle(AuroraPalette.amber)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("results.open_permissions") {
+                        PermissionService.shared.openFullDiskAccessSettings()
+                    }
+                    .buttonStyle(.link)
+                }
+                if outcome.safeBytes + outcome.reviewBytes == 0 {
+                    Text("results.zero_candidates_note")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer()
@@ -202,6 +221,7 @@ public struct ResultsWorkspaceView: View {
     }
 
     private var coverageKind: StatusPill.Kind {
+        if outcome.coverage.limitedByPermission { return .warning }
         switch outcome.coverage.confidence {
         case .complete, .mostlyComplete: return .ok
         case .partial: return .warning
@@ -322,15 +342,81 @@ public struct ResultsWorkspaceView: View {
             CoverageDetailRow(title: "coverage.scanned_roots", count: outcome.coverage.scannedRoots.count)
             CoverageDetailRow(title: "coverage.partial_roots", count: outcome.coverage.partialRoots.count)
             CoverageDetailRow(title: "coverage.denied_roots", count: outcome.coverage.deniedRoots.count)
+            CoverageDetailRow(title: "coverage.not_granted_roots", count: outcome.coverage.notGrantedRoots.count)
             CoverageDetailRow(title: "coverage.sip_roots", count: outcome.coverage.sipProtectedRoots.count)
             CoverageDetailRow(title: "coverage.skipped_network", count: outcome.coverage.skippedNetworkVolumes.count)
             CoverageDetailRow(title: "coverage.skipped_timemachine", count: outcome.coverage.skippedTimeMachine.count)
             CoverageDetailRow(title: "coverage.symlinks_rejected", count: outcome.coverage.symlinksRejected)
             CoverageDetailRow(title: "coverage.errors", count: outcome.coverage.totalErrors)
+
+            if !outcome.coverage.rootDetails.isEmpty {
+                Divider().overlay(Color.white.opacity(0.08))
+                Text("coverage.root_details")
+                    .font(.subheadline.weight(.semibold))
+                ForEach(outcome.coverage.rootDetails) { detail in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: stateIcon(detail.state))
+                            .foregroundStyle(stateTint(detail.state))
+                            .frame(width: 16)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(detail.root)
+                                .font(.caption)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            if let reason = detail.reason {
+                                Text(reason)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Text(stateTitle(detail.state))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
+    }
+
+    private func stateTitle(_ state: CoverageState) -> String {
+        switch state {
+        case .scanned: return NSLocalizedString("coverage.state.scanned", comment: "")
+        case .partial: return NSLocalizedString("coverage.state.partial", comment: "")
+        case .denied: return NSLocalizedString("coverage.state.denied", comment: "")
+        case .sipProtected: return NSLocalizedString("coverage.state.sip", comment: "")
+        case .skippedNotGranted: return NSLocalizedString("coverage.state.not_granted", comment: "")
+        case .skippedNetwork: return NSLocalizedString("coverage.state.network", comment: "")
+        case .skippedTimeMachine: return NSLocalizedString("coverage.state.time_machine", comment: "")
+        case .skippedMount: return NSLocalizedString("coverage.state.mount", comment: "")
+        case .missing: return NSLocalizedString("coverage.state.missing", comment: "")
+        }
+    }
+
+    private func stateIcon(_ state: CoverageState) -> String {
+        switch state {
+        case .scanned: return "checkmark.circle.fill"
+        case .partial: return "exclamationmark.circle.fill"
+        case .denied: return "xmark.circle.fill"
+        case .sipProtected: return "lock.fill"
+        case .skippedNotGranted: return "lock.open.fill"
+        case .skippedNetwork: return "network.slash"
+        case .skippedTimeMachine: return "clock.arrow.circlepath"
+        case .skippedMount: return "externaldrive.badge.xmark"
+        case .missing: return "questionmark.circle.fill"
+        }
+    }
+
+    private func stateTint(_ state: CoverageState) -> Color {
+        switch state {
+        case .scanned: return AuroraPalette.success
+        case .partial, .denied, .missing: return AuroraPalette.coral
+        case .sipProtected, .skippedNotGranted: return AuroraPalette.amber
+        case .skippedNetwork, .skippedTimeMachine, .skippedMount: return AuroraPalette.cyan
+        }
     }
 
     // MARK: - Bottom bar

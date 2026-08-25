@@ -66,8 +66,7 @@ final class ScanIndexStoreTests: XCTestCase {
         let outcome = ScanOutcome(
             scanID: scanID, mode: .quick, startedAt: Date(), finishedAt: Date(),
             coverage: ScanCoverageReport.build(
-                requestedRoots: ["/tmp/x"], outcomes: ["/tmp/x": .scanned],
-                symlinksRejected: 0, filesChangedDuringScan: 0, totalErrors: 0
+                requestedRoots: ["/tmp/x"], outcomes: ["/tmp/x": .scanned]
             ),
             provenance: .full, itemsScanned: 1, bytesIndexed: 42
         )
@@ -179,14 +178,45 @@ final class CleanupPlanTests: XCTestCase {
         let selection = [safeFile, protectedFile].map {
             ScannedItem(path: $0.path, size: FileUtilities.fileSize(atPath: $0.path))
         }
+        // The fixture sandbox acts as the scan's library root.
         let plan = CleanupPlanBuilder.build(
             selection: selection,
             records: [safeRecord, protectedRecord],
             containmentRoot: sandbox.path,
-            previewOnly: true
+            previewOnly: true,
+            libraryRoots: [sandbox.path]
         )
         XCTAssertEqual(plan.items.count, 1)
         XCTAssertEqual(plan.items.first?.path, safeFile.path)
+    }
+
+    func testPlanBuilderAdmitsBundlesOnlyForUninstallerFlow() throws {
+        let bundleDir = sandbox.appendingPathComponent("Fixture.app", isDirectory: true)
+        try FileManager.default.createDirectory(at: bundleDir, withIntermediateDirectories: true)
+        guard let bundleRecord = MetadataCollector.collect(url: bundleDir) else {
+            return XCTFail("no record")
+        }
+        let selection = [ScannedItem(path: bundleDir.path, size: bundleRecord.allocatedSize)]
+
+        let denied = CleanupPlanBuilder.build(
+            selection: selection,
+            records: [bundleRecord],
+            containmentRoot: sandbox.path,
+            previewOnly: true,
+            libraryRoots: [sandbox.path]
+        )
+        XCTAssertTrue(denied.items.isEmpty, "Bundles must be excluded without the uninstaller flag")
+
+        let allowed = CleanupPlanBuilder.build(
+            selection: selection,
+            records: [bundleRecord],
+            containmentRoot: sandbox.path,
+            previewOnly: true,
+            libraryRoots: [sandbox.path],
+            allowBundles: true
+        )
+        XCTAssertEqual(allowed.items.count, 1)
+        XCTAssertEqual(allowed.items.first?.safety, .review)
     }
 
     func testValidatorRejectsChangedFileIdentity() async throws {
@@ -206,12 +236,12 @@ final class CleanupPlanTests: XCTestCase {
             containmentRoot: sandbox.path,
             action: .moveToTrash
         )
-        XCTAssertNoThrow(try CleanupSafetyValidator.validate(item: item, allowBundles: false).get())
+        XCTAssertNoThrow(try CleanupSafetyValidator.validate(item: item, allowBundles: false, libraryRoots: [sandbox.path]).get())
 
         // Replace the file: inode changes → identity check must fail.
         try? FileManager.default.removeItem(at: file)
         FileManager.default.createFile(atPath: file.path, contents: Data("replacement".utf8))
-        let result = CleanupSafetyValidator.validate(item: item, allowBundles: false)
+        let result = CleanupSafetyValidator.validate(item: item, allowBundles: false, libraryRoots: [sandbox.path])
         XCTAssertThrowsError(try result.get())
     }
 
@@ -230,6 +260,7 @@ final class CleanupPlanTests: XCTestCase {
 
         let result = await CleanupExecutor.shared.execute(
             plan: plan,
+            libraryRoots: [sandbox.path],
             progress: { _, _ in },
             isCancelled: { false }
         )
