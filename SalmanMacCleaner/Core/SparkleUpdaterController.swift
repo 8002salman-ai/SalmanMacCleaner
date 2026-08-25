@@ -13,9 +13,39 @@
 
 import Foundation
 import AppKit
+import Security
 #if canImport(Sparkle)
 import Sparkle
 #endif
+
+public struct UpdaterAudit: Equatable {
+    public let installedVersion: String
+    public let availableVersion: String?
+    public let releaseSource: String
+    public let architecture: String
+    public let signatureStatus: String
+    public let notarizationStatus: String
+    public let notes: String
+    public let releaseDate: Date?
+
+    public init(installedVersion: String,
+                availableVersion: String? = nil,
+                releaseSource: String,
+                architecture: String,
+                signatureStatus: String,
+                notarizationStatus: String,
+                notes: String,
+                releaseDate: Date? = nil) {
+        self.installedVersion = installedVersion
+        self.availableVersion = availableVersion
+        self.releaseSource = releaseSource
+        self.architecture = architecture
+        self.signatureStatus = signatureStatus
+        self.notarizationStatus = notarizationStatus
+        self.notes = notes
+        self.releaseDate = releaseDate
+    }
+}
 
 @MainActor
 public final class SparkleUpdaterController: ObservableObject {
@@ -23,6 +53,10 @@ public final class SparkleUpdaterController: ObservableObject {
     public static let shared = SparkleUpdaterController()
 
     @Published public private(set) var state: UpdaterState = .unconfigured
+    /// Set only after Sparkle validates a newer appcast item. A downloaded
+    /// item is still not called installed; installation remains Sparkle's
+    /// verified update cycle.
+    @Published public private(set) var availableVersion: String?
 
     public enum UpdaterState: Equatable {
         case unconfigured
@@ -44,17 +78,48 @@ public final class SparkleUpdaterController: ObservableObject {
 
     #if canImport(Sparkle)
     private var updaterController: SPUStandardUpdaterController?
+    private var sparkleDelegate: SparkleDelegate?
+
+    private final class SparkleDelegate: NSObject, SPUUpdaterDelegate {
+        weak var owner: SparkleUpdaterController?
+
+        func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
+            let version = item.displayVersionString.isEmpty ? item.versionString : item.displayVersionString
+            Task { @MainActor [weak owner] in
+                owner?.availableVersion = version
+                owner?.state = .updateAvailable(version: version)
+            }
+        }
+
+        func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error?) {
+            Task { @MainActor [weak owner] in
+                owner?.availableVersion = nil
+                owner?.state = error.map { .failed($0.localizedDescription) } ?? .upToDate
+            }
+        }
+
+        func updater(_ updater: SPUUpdater, didFinishUpdateCycleFor updateCheck: SPUUpdateCheck, error: Error?) {
+            guard let error else { return }
+            Task { @MainActor [weak owner] in
+                owner?.state = .failed(error.localizedDescription)
+            }
+        }
+    }
     #endif
 
     public init() {
         #if canImport(Sparkle)
+        state = Self.isConfigured ? .checking : .unconfigured
+        let delegate = SparkleDelegate()
+        self.sparkleDelegate = delegate
         if Self.isConfigured {
             updaterController = SPUStandardUpdaterController(
                 startingUpdater: true,
-                updaterDelegate: nil,
+                updaterDelegate: delegate,
                 userDriverDelegate: nil
             )
         }
+        delegate.owner = self
         #endif
     }
 
@@ -104,6 +169,7 @@ public final class SparkleUpdaterController: ObservableObject {
             return
         }
         state = .checking
+        availableVersion = nil
         updaterController?.checkForUpdates(nil)
         #else
         state = .failed(NSLocalizedString("updater.reason.unavailable", comment: ""))
@@ -113,19 +179,35 @@ public final class SparkleUpdaterController: ObservableObject {
     /// Best-effort "is an update pending" signal for the status pill.
     public static func hasPendingUpdate() async -> Bool {
         guard isConfigured else { return false }
-        #if canImport(Sparkle)
-        // Sparkle surfaces pending updates through the standard user driver;
-        // the pill is only shown while an update session exists.
-        return false
-        #else
-        return false
-        #endif
+        return await MainActor.run { shared.availableVersion != nil }
     }
 
-    /// Current version + build for Settings/About.
+    public static var currentAudit: UpdaterAudit {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "-"
+        let installed = "\(version) (\(build))"
+        let executable = Bundle.main.executableURL?.path
+        let architectures = executable.map { MachOArchitecture.architectures(ofBinaryAt: $0) } ?? []
+        let signature = isSignedForDistribution
+            ? NSLocalizedString("updater.signature.valid", comment: "")
+            : NSLocalizedString("updater.signature.not_verified", comment: "")
+        return UpdaterAudit(
+            installedVersion: installed,
+            availableVersion: nil,
+            releaseSource: isConfigured
+                ? NSLocalizedString("updater.source.sparkle", comment: "")
+                : NSLocalizedString("updater.source.official_page", comment: ""),
+            architecture: architectures.isEmpty ? NSLocalizedString("updater.architecture.unknown", comment: "") : architectures.joined(separator: ", "),
+            signatureStatus: signature,
+            notarizationStatus: NSLocalizedString("updater.notarization.inspect_on_release", comment: ""),
+            notes: isConfigured ? NSLocalizedString("updater.notes.feed_check", comment: "") : unconfiguredReason,
+            releaseDate: nil
+        )
+    }
+
+    /// Current version + build for Settings/About. Both values come from the
+    /// bundle metadata; the source fallback is deliberately not a release id.
     public static var currentVersion: String {
-        let version = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.0.0"
-        let build = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "1"
-        return "\(version) (\(build))"
+        currentAudit.installedVersion
     }
 }

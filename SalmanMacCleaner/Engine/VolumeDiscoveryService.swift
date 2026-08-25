@@ -97,7 +97,8 @@ public enum VolumeDiscoveryService {
         guard statfs(path, &buffer) == 0 else { return "unknown" }
         return withUnsafeBytes(of: &buffer.f_fstypename) { raw in
             let bytes = raw.bindMemory(to: CChar.self)
-            return String(cString: bytes.baseAddress!)
+            guard let baseAddress = bytes.baseAddress else { return "unknown" }
+            return String(cString: baseAddress)
         }
     }
 

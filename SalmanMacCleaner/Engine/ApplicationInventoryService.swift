@@ -10,6 +10,7 @@
 
 import Foundation
 import AppKit
+import CoreServices
 import Security
 
 public enum ApplicationInventoryService {
@@ -21,7 +22,8 @@ public enum ApplicationInventoryService {
         return [
             URL(fileURLWithPath: "/Applications", isDirectory: true),
             home.appendingPathComponent("Applications", isDirectory: true),
-            URL(fileURLWithPath: "/System/Applications", isDirectory: true)
+            URL(fileURLWithPath: "/System/Applications", isDirectory: true),
+            URL(fileURLWithPath: "/System/Library/CoreServices/Applications", isDirectory: true)
         ]
     }
 
@@ -32,19 +34,34 @@ public enum ApplicationInventoryService {
         var seenPaths: Set<String> = []
         var seenBundleIDs: Set<String> = []
 
+        var candidates: [(url: URL, root: URL)] = []
         for root in discoveryRoots() {
-            let apps = appBundles(at: root, maxDepth: 2)
-            for appURL in apps {
-                guard let record = makeRecord(appURL: appURL, root: root) else { continue }
-                let canonical = record.bundlePath
-                if seenPaths.contains(canonical) { continue }
-                if let bundleID = record.bundleID {
-                    if seenBundleIDs.contains(bundleID) { continue }
-                    seenBundleIDs.insert(bundleID)
+            candidates.append(contentsOf: appBundles(at: root, maxDepth: 3).map { ($0, root) })
+        }
+        // A development build can run from DerivedData or a user-selected
+        // folder. Include the actual running bundle in the inventory so the
+        // general Applications view never silently omits the cleaner.
+        let runningBundle = Bundle.main.bundleURL
+        if runningBundle.pathExtension.lowercased() == "app" {
+            candidates.append((runningBundle, runningBundle.deletingLastPathComponent()))
+        }
+
+        for (appURL, root) in candidates {
+            guard let record = makeRecord(appURL: appURL, root: root) else { continue }
+            let canonical = record.bundlePath
+            if seenPaths.contains(canonical) { continue }
+            if let bundleID = record.bundleID {
+                if seenBundleIDs.contains(bundleID) && !record.isCurrentApp { continue }
+                if record.isCurrentApp {
+                    // Prefer the running bundle over another copy with the
+                    // same identifier so the cleaner is always explicitly
+                    // represented as protected in the inventory.
+                    records.removeAll { $0.bundleID == bundleID && !$0.isCurrentApp }
                 }
-                seenPaths.insert(canonical)
-                records.append(record)
+                seenBundleIDs.insert(bundleID)
             }
+            seenPaths.insert(canonical)
+            records.append(record)
         }
 
         records.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
@@ -69,7 +86,8 @@ public enum ApplicationInventoryService {
             return results
         }
 
-        for entry in entries {
+        for (index, entry) in entries.enumerated() {
+            guard index < 10_000, !Task.isCancelled else { break }
             guard let values = try? entry.resourceValues(forKeys: Set(keys)) else { continue }
             if values.isSymbolicLink == true { continue }
             let isPackage = values.isPackage ?? false
@@ -94,23 +112,25 @@ public enum ApplicationInventoryService {
         let build = bundle?.infoDictionary?["CFBundleVersion"] as? String
         let displayValue = bundle?.infoDictionary?["CFBundleDisplayName"] as? String
         let nameValue = bundle?.infoDictionary?["CFBundleName"] as? String
-        let displayName = displayValue ?? nameValue ?? appURL.deletingLastPathComponent().lastPathComponent
+        let displayName = displayValue ?? nameValue ?? appURL.deletingPathExtension().lastPathComponent
+        let publisher = publisherName(from: bundle?.infoDictionary)
         let executableName = bundle?.infoDictionary?["CFBundleExecutable"] as? String
         let executablePath = executableName.map { path + "/Contents/MacOS/" + $0 }
         let architectures = executablePath.map { MachOArchitecture.architectures(ofBinaryAt: $0) } ?? []
 
-        let isSystemApp = root.path.hasPrefix("/System/") || root.path == "/System/Applications"
-        let isUserOwned = PathSafety.isOwnedByCurrentUser(path)
+        let currentBundlePath = Bundle.main.bundleURL.standardizedFileURL.path
+        let isCurrentApp = path == currentBundlePath
+        let isSystemApp = path == "/System" || path.hasPrefix("/System/")
+            || root.path == "/System/Applications"
+            || root.path == "/System/Library/CoreServices/Applications"
+        let isUserOwned = !isSystemApp && PathSafety.isOwnedByCurrentUser(path)
         let isRunning = CleanupEngine.isAppRunning(bundlePath: path)
         let isQuarantined = QuarantineSupport.hasQuarantineAttribute(path)
         let isCodeSigned = codeSigningStatus(path)
         let bundleSize = bundleSize(at: path)
 
-        // Last opened from LaunchServices metadata where reliably available.
+        // Last opened from Spotlight metadata where reliably available.
         var lastOpened: Date?
-        if let metadata = try? NSWorkspace.shared.urlForApplication(toOpen: appURL) {
-            _ = metadata
-        }
         let mdItem = MDItemCreate(kCFAllocatorDefault, path as CFString)
         if let mdItem,
            let value = MDItemCopyAttribute(mdItem, kMDItemLastUsedDate) as? Date {
@@ -130,8 +150,32 @@ public enum ApplicationInventoryService {
             isUserOwned: isUserOwned,
             isRunning: isRunning,
             bundleSize: bundleSize,
-            lastOpened: lastOpened
+            lastOpened: lastOpened,
+            vendorName: publisher,
+            isCurrentApp: isCurrentApp
         )
+    }
+
+    /// Prefer the publisher metadata macOS bundles commonly carry. This is
+    /// displayed as evidence only; it is never used to infer ownership.
+    private static func publisherName(from info: [String: Any]?) -> String? {
+        guard let info else { return nil }
+        if let value = info["CFBundleGetInfoString"] as? String,
+           !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return value.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let copyright = info["NSHumanReadableCopyright"] as? String {
+            let cleaned = copyright
+                .replacingOccurrences(of: "©", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let withoutYear = cleaned.replacingOccurrences(
+                of: #"^\s*\d{4}(?:[-–]\d{4})?\s*"#,
+                with: "",
+                options: .regularExpression
+            )
+            return withoutYear.isEmpty ? nil : withoutYear
+        }
+        return nil
     }
 
     /// Code-signing validity via SecStaticCode — read-only, no entitlements.
@@ -147,16 +191,19 @@ public enum ApplicationInventoryService {
         guard let enumerator = FileManager.default.enumerator(
             at: URL(fileURLWithPath: path, isDirectory: true),
             includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileAllocatedSizeKey, .fileSizeKey],
-            options: [.skipsHiddenFiles],
+            options: [],
             errorHandler: { _, _ in false }
         ) else { return 0 }
 
         var total: Int64 = 0
+        var entries = 0
         for case let url as URL in enumerator {
-            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]) else { continue }
+            entries += 1
+            guard entries <= 250_000, !Task.isCancelled else { break }
+            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileAllocatedSizeKey, .fileSizeKey]) else { continue }
             if values.isSymbolicLink == true { continue }
             if values.isRegularFile == true {
-                total += Int64(values.fileSize ?? 0)
+                total = CleanupAccounting.adding(total, Int64(values.fileAllocatedSize ?? values.fileSize ?? 0))
             }
         }
         return total

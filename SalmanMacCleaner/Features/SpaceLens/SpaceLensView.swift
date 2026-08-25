@@ -78,6 +78,7 @@ public final class SpaceLensViewModel: ObservableObject {
     @Published public var targets: [SpaceLensTargetRoot] = []
 
     private var scanTask: Task<Void, Never>?
+    private var scanToken = UUID()
     private var historyStack: [SpaceLensNode] = []
     private var forwardStack: [SpaceLensNode] = []
 
@@ -129,10 +130,27 @@ public final class SpaceLensViewModel: ObservableObject {
     }
 
     public func selectTarget(_ target: SpaceLensTargetRoot) {
+        scanTask?.cancel()
+        scanTask = nil
+        isScanning = false
+        scanToken = UUID()
         selectedTargetPath = target.path
-        if let cached = SpaceLensCache.shared.node(for: target.path) {
+        if let cached = SpaceLensCache.shared.node(
+            for: target.path,
+            includeHidden: includeHidden,
+            includePackageContents: includePackageContents
+        ) {
             root = cached
             focus = cached
+            let cachedState: SpaceLensRootState
+            if cached.isDenied {
+                cachedState = .denied(reason: NSLocalizedString("space_lens.error.denied", comment: ""))
+            } else if containsTruncatedNode(cached) {
+                cachedState = .partial(deniedPaths: 0, errors: 1)
+            } else {
+                cachedState = .measured(bytes: cached.totalBytes, fileCount: cached.totalFiles)
+            }
+            updateTargetState(path: target.path, state: cachedState)
             historyStack = []
             forwardStack = []
         } else {
@@ -158,6 +176,8 @@ public final class SpaceLensViewModel: ObservableObject {
 
     public func scan(targetPath: String) {
         scanTask?.cancel()
+        let token = UUID()
+        scanToken = token
         isScanning = true
         progress = SpaceLensProgress(currentPath: targetPath)
         root = nil
@@ -178,17 +198,15 @@ public final class SpaceLensViewModel: ObservableObject {
                 includePackageContents: packages,
                 progress: { update in
                     Task { @MainActor in
-                        if !Task.isCancelled {
-                            self.progress = update
-                        }
+                        guard self.scanToken == token else { return }
+                        self.progress = update
                     }
                 },
                 isCancelled: { Task.isCancelled }
             )
 
-            if Task.isCancelled { return }
-
             await MainActor.run {
+                guard self.scanToken == token else { return }
                 self.root = result.node
                 self.focus = result.node
                 self.isScanning = false
@@ -199,10 +217,18 @@ public final class SpaceLensViewModel: ObservableObject {
 
     public func cancelScan() {
         scanTask?.cancel()
+        scanToken = UUID()
         isScanning = false
         if let current = selectedTarget, case .scanning = current.state {
-            updateTargetState(path: selectedTargetPath, state: .notScanned)
+            updateTargetState(
+                path: selectedTargetPath,
+                state: .partial(deniedPaths: progress.inaccessibleCount, errors: 1)
+            )
         }
+    }
+
+    private func containsTruncatedNode(_ node: SpaceLensNode) -> Bool {
+        node.isTruncated || node.children.contains { containsTruncatedNode($0) }
     }
 
     private func updateTargetState(path: String, state: SpaceLensRootState) {
@@ -271,7 +297,7 @@ public struct SpaceLensView: View {
 
             if model.isScanning {
                 scanningProgressView
-            } else if let root = model.root, root.totalBytes > 0 {
+            } else if model.root != nil {
                 workspaceView
             } else if let target = model.selectedTarget {
                 unscannedOrErrorView(target: target)
@@ -285,6 +311,17 @@ public struct SpaceLensView: View {
         .background {
             AuroraBackground { EmptyView() }
         }
+        .onChange(of: model.includeHidden) { _ in
+            rescanAfterOptionChange()
+        }
+        .onChange(of: model.includePackageContents) { _ in
+            rescanAfterOptionChange()
+        }
+    }
+
+    private func rescanAfterOptionChange() {
+        guard model.root != nil, !model.isScanning else { return }
+        model.startCurrentScan()
     }
 
     // MARK: - Target Selector Bar
@@ -524,6 +561,15 @@ public struct SpaceLensView: View {
                 }
             }
 
+            Toggle("space_lens.hidden_toggle", isOn: $model.includeHidden)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help(Text("space_lens.hidden_toggle"))
+            Toggle("space_lens.packages_toggle", isOn: $model.includePackageContents)
+                .toggleStyle(.checkbox)
+                .font(.caption)
+                .help(Text("space_lens.packages_toggle"))
+
             Spacer()
 
             Button {
@@ -589,6 +635,18 @@ public struct SpaceLensView: View {
                             hitTest(at: value.location, canvasSize: geometry.size)
                         }
                 )
+
+                if let focus = model.focus, focus.totalBytes == 0 {
+                    VStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle")
+                            .font(.title2)
+                            .foregroundStyle(AuroraPalette.success)
+                        Text("space_lens.empty_folder")
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
 
                 if let hovered = model.hoveredNode {
                     VStack(alignment: .leading, spacing: 4) {
@@ -789,65 +847,102 @@ private struct SpaceLensRootGlyph: View {
     }
 }
 
-/// Deterministic circle-packing layout: children sized by allocated bytes,
-/// placed with a spiral until no overlap.
+/// Deterministic, bounded circle layout. The focus root is deliberately a
+/// small anchor, while children are laid over the remaining canvas. Children
+/// never avoid a full-size root circle (the old reason only one bubble was
+/// visible), and every frame is finite and contained.
 public enum BubblePacker {
 
     public static func layout(node: SpaceLensNode, in size: CGSize) -> [BubbleLayoutNode] {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        var result: [BubbleLayoutNode] = []
+        let width = max(size.width, 1)
+        let height = max(size.height, 1)
+        let canvas = CGRect(x: 4, y: 4, width: max(width - 8, 1), height: max(height - 8, 1))
+        let minimumSide = min(canvas.width, canvas.height)
+        guard minimumSide.isFinite, minimumSide > 0 else { return [] }
 
-        let rootDiameter = min(size.width, size.height) * 0.94
-        let rootFrame = CGRect(x: center.x - rootDiameter / 2, y: center.y - rootDiameter / 2,
-                               width: rootDiameter, height: rootDiameter)
-        result.append(BubbleLayoutNode(id: UUID(), frame: rootFrame, source: node, depth: 0))
-
+        let rootDiameter = max(minimumSide * 0.28, 36)
+        let rootFrame = CGRect(
+            x: canvas.midX - rootDiameter / 2,
+            y: canvas.midY - rootDiameter / 2,
+            width: rootDiameter,
+            height: rootDiameter
+        )
+        var result = [BubbleLayoutNode(id: stableID(for: node.path), frame: rootFrame, source: node, depth: 0)]
+        var placed = [rootFrame.insetBy(dx: -3, dy: -3)]
         let total = max(node.totalBytes, 1)
-        let sorted = node.children.sorted { $0.totalBytes > $1.totalBytes }
-        var placed: [CGRect] = [rootFrame.insetBy(dx: -rootFrame.width * 0.02, dy: -rootFrame.height * 0.02)]
+        let sorted = node.children.sorted {
+            if $0.totalBytes == $1.totalBytes { return $0.path < $1.path }
+            return $0.totalBytes > $1.totalBytes
+        }
 
         for child in sorted {
-            let areaFraction = Double(child.totalBytes) / Double(total)
-            let diameter = max(sqrt(max(areaFraction, 0.0001)) * rootDiameter, 26)
-            let frame = findSpot(for: diameter, inside: rootFrame, avoid: placed)
-            if let frame {
-                placed.append(frame.insetBy(dx: -4, dy: -4))
-                result.append(BubbleLayoutNode(id: UUID(), frame: frame, source: child, depth: 1))
-            }
+            let fraction = min(max(Double(child.totalBytes) / Double(total), 0.0001), 1)
+            // Diameter is proportional to the square root of measured bytes
+            // (area carries the byte proportion), with a cap that preserves
+            // room for several siblings around the focus anchor.
+            let rawDiameter = sqrt(fraction) * minimumSide * 0.38
+            let diameter = min(max(rawDiameter, 26), minimumSide * 0.36)
+            guard diameter.isFinite, diameter > 0,
+                  let frame = findSpot(for: diameter, inside: canvas, avoid: placed) else { continue }
+            placed.append(frame.insetBy(dx: -3, dy: -3))
+            result.append(BubbleLayoutNode(
+                id: stableID(for: child.path),
+                frame: frame,
+                source: child,
+                depth: 1
+            ))
         }
         return result
+    }
+
+    private static func stableID(for path: String) -> UUID {
+        // UUID(uuidString:) is deterministic for generated test paths when
+        // available; a UUID derived from UTF-8 bytes avoids random layout IDs.
+        let bytes = Array(path.utf8)
+        var hash: UInt64 = 1469598103934665603
+        for byte in bytes {
+            hash ^= UInt64(byte)
+            hash &*= 1099511628211
+        }
+        let hex = String(format: "%016llx%016llx%016llx%016llx", hash, hash ^ 0x9e3779b97f4a7c15, hash, hash ^ 0xa5a5a5a5a5a5a5a5)
+        let chars = Array(hex.prefix(32))
+        let uuidText = "\(String(chars[0..<8]))-\(String(chars[8..<12]))-\(String(chars[12..<16]))-\(String(chars[16..<20]))-\(String(chars[20..<32]))"
+        return UUID(uuidString: uuidText) ?? UUID()
     }
 
     private static func findSpot(for diameter: CGFloat, inside container: CGRect, avoid: [CGRect]) -> CGRect? {
         let radius = diameter / 2
         let center = CGPoint(x: container.midX, y: container.midY)
-        let maxR = max(container.width, container.height) / 2 - radius
+        let maxRadius = min(container.width, container.height) / 2 - radius
+        guard maxRadius >= 0 else { return nil }
+        let radialStep = max(radius * 0.42, 4)
 
-        var angle = 0.0
-        var distance: CGFloat = 0
-        let step: CGFloat = radius * 0.6
-
-        for _ in 0..<420 {
+        for index in 0..<2_400 {
+            let angle = Double(index) * 0.61803398875 * Double.pi * 2
+            let distance = min(maxRadius, CGFloat(sqrt(Double(index))) * radialStep)
             let candidateCenter = CGPoint(
                 x: center.x + cos(angle) * distance,
                 y: center.y + sin(angle) * distance
             )
-            let candidate = CGRect(x: candidateCenter.x - radius, y: candidateCenter.y - radius,
-                                   width: diameter, height: diameter)
-            if container.contains(candidate) && !overlaps(candidate, avoid) {
-                return candidate
-            }
-            angle += 0.42
-            distance += step / 90
-            if distance > maxR { break }
+            let candidate = CGRect(
+                x: candidateCenter.x - radius,
+                y: candidateCenter.y - radius,
+                width: diameter,
+                height: diameter
+            )
+            guard candidate.isFinite, container.contains(candidate), !overlaps(candidate, avoid) else { continue }
+            return candidate
         }
         return nil
     }
 
     private static func overlaps(_ candidate: CGRect, _ placed: [CGRect]) -> Bool {
-        for other in placed {
-            if candidate.intersects(other) { return true }
-        }
-        return false
+        placed.contains { candidate.intersects($0) }
+    }
+}
+
+private extension CGRect {
+    var isFinite: Bool {
+        minX.isFinite && minY.isFinite && width.isFinite && height.isFinite && width >= 0 && height >= 0
     }
 }

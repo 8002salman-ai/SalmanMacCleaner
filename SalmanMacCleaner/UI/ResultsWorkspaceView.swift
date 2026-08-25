@@ -173,32 +173,54 @@ public final class ResultsWorkspaceModel: ObservableObject {
     public func buildDraft(previewOnly: Bool,
                            libraryRoots: [String] = [],
                            reviewRoots: [String] = []) -> CleanupPlanDraft {
-        let recordsByPath = Dictionary(uniqueKeysWithValues: items.map { ($0.path, $0) })
+        var recordsByPath: [String: ClassifiedRecord] = [:]
+        for item in items {
+            let canonical = URL(fileURLWithPath: item.path).standardizedFileURL.path
+            if recordsByPath[canonical] == nil {
+                recordsByPath[canonical] = item
+            }
+        }
         var records: [FileRecord] = []
         var selected: [ScannedItem] = []
+        var preclassified: [String: JunkVerdict] = [:]
         var unplanned: [(path: String, reason: String, bytes: Int64)] = []
 
         for path in selection.sorted() {
-            guard let listed = recordsByPath[path] else {
+            let canonicalSelectionPath = URL(fileURLWithPath: path).standardizedFileURL.path
+            guard let listed = recordsByPath[canonicalSelectionPath] else {
                 unplanned.append((
-                    path,
-                    NSLocalizedString("plan.skip.not_listed", comment: "") + " \(path)",
+                    canonicalSelectionPath,
+                    NSLocalizedString("plan.skip.not_listed", comment: "") + " \(canonicalSelectionPath)",
                     0
                 ))
                 continue
             }
             guard let record = MetadataCollector.collect(
-                url: URL(fileURLWithPath: path, isDirectory: false)
+                url: URL(fileURLWithPath: canonicalSelectionPath, isDirectory: false)
             ) else {
                 unplanned.append((
-                    path,
-                    NSLocalizedString("plan.skip.no_record", comment: "") + " \(path)",
+                    canonicalSelectionPath,
+                    NSLocalizedString("plan.skip.no_record", comment: "") + " \(canonicalSelectionPath)",
                     listed.allocatedSize
                 ))
                 continue
             }
             records.append(record)
-            selected.append(ScannedItem(path: record.path, size: record.allocatedSize))
+            preclassified[record.path] = JunkVerdict(
+                category: listed.junkCategory,
+                safety: listed.safetyLevel,
+                reason: listed.reason,
+                autoSelectable: listed.safetyLevel == .safe,
+                regenerable: listed.safetyLevel != .protected,
+                sourceRule: "scan-index"
+            )
+            selected.append(ScannedItem(
+                path: record.path,
+                size: record.allocatedSize,
+                isDirectory: record.isDirectory,
+                device: record.device,
+                inode: record.inode
+            ))
         }
 
         let draft = CleanupPlanBuilder.buildDetailed(
@@ -208,13 +230,17 @@ public final class ResultsWorkspaceModel: ObservableObject {
             previewOnly: previewOnly,
             scanID: outcome?.scanID,
             libraryRoots: libraryRoots,
-            reviewRoots: reviewRoots
+            reviewRoots: reviewRoots,
+            preclassified: preclassified
         )
         return CleanupPlanDraft(
             plan: draft.plan,
             rejections: draft.rejections + unplanned,
             selectedCount: draft.selectedCount + unplanned.count,
-            selectedBytes: draft.selectedBytes + unplanned.reduce(Int64(0)) { $0 + $1.bytes }
+            selectedBytes: CleanupAccounting.adding(
+                draft.selectedBytes,
+                unplanned.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.bytes) }
+            )
         )
     }
 
@@ -763,12 +789,16 @@ public struct ResultsWorkspaceView: View {
                 Text(String(
                     format: NSLocalizedString("cleanup.report.counts", comment: ""),
                     report.selectedCount,
+                    FileUtilities.formattedBytes(report.selectedBytes),
                     report.plannedCount,
                     report.moved.count,
+                    FileUtilities.formattedBytes(report.movedBytes),
                     report.previewed.count,
+                    FileUtilities.formattedBytes(report.previewedBytes),
                     report.skippedCount,
                     report.failedCount,
-                    FileUtilities.formattedBytes(report.previewOnly ? report.previewedBytes : report.movedBytes)
+                    report.notProcessed,
+                    FileUtilities.formattedBytes(report.remainingBytes)
                 ))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
@@ -809,6 +839,9 @@ public struct ResultsWorkspaceView: View {
 
         let root = draft.plan.items.first?.containmentRoot ?? PathSafety.userHome.path
         let category = draft.plan.items.first?.category.rawValue ?? "unknown"
+        let libraryRoots = ScanPolicy.quickLibraryRoots(home: PathSafety.userHome)
+        let reviewRoots = ScanPolicy.defaultReviewRoots(home: PathSafety.userHome)
+            + (model.outcome?.coverage.scannedRoots ?? [])
         appState.beginActivity(.cleaning(detail: NSLocalizedString(
             previewOnly ? "results.previewing" : "results.cleaning",
             comment: ""
@@ -818,8 +851,11 @@ public struct ResultsWorkspaceView: View {
         Task {
             let result = await CleanupExecutor.shared.execute(
                 plan: draft.plan,
+                libraryRoots: libraryRoots,
+                reviewRoots: reviewRoots,
                 skipped: draft.rejections,
                 selectedCount: draft.selectedCount,
+                selectedBytes: draft.selectedBytes,
                 progress: { fraction, detail in
                     Task { @MainActor in appState.updateProgress(fraction, detail: detail) }
                 },

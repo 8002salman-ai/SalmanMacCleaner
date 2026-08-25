@@ -52,7 +52,7 @@ public enum CleanupSafetyValidator {
 
     /// Bundles shipped with macOS. Never offered, never removed.
     public static func isSystemBundle(_ path: String) -> Bool {
-        path.hasPrefix("/System/") || path == "/System/Applications"
+        path == "/System" || path.hasPrefix("/System/")
     }
 
     /// Validate one planned item right before execution.
@@ -97,10 +97,18 @@ public enum CleanupSafetyValidator {
         guard validated.kind == .regularFile || validated.kind == .directory else {
             return .failure(.unsupportedKind(item.path))
         }
+        if validated.kind == .regularFile,
+           let linkCount = Crypto.linkCount(of: validated.canonical),
+           linkCount > 1 {
+            return .failure(.rejected(
+                NSLocalizedString("cleanup.error.hard_link_selection", comment: "") + " \(validated.canonical)"
+            ))
+        }
 
         // 2. Recheck ownership.
         guard let owner = PathSafety.uid(of: validated.canonical),
-              owner == item.expectedOwner else {
+              owner == item.expectedOwner,
+              owner == PathSafety.currentUID else {
             return .failure(.ownershipChanged(item.path))
         }
 

@@ -92,9 +92,15 @@ public enum LargeFileScanner {
         isCancelled: @escaping () -> Bool
     ) {
         var stack: [(path: String, depth: Int)] = [(root, 0)]
+        var directoriesVisited = 0
 
         while let current = stack.popLast() {
             if isCancelled() { return }
+            directoriesVisited += 1
+            guard directoriesVisited <= 100_000 else {
+                skipped += 1
+                return
+            }
             if current.depth > maxDepth { continue }
 
             let safe = PathSafety.validate(
@@ -124,7 +130,11 @@ public enum LargeFileScanner {
             }
 
             var childDirs: [URL] = []
-            for url in contents {
+            for (entryIndex, url) in contents.enumerated() {
+                guard entryIndex < 10_000 else {
+                    skipped += 1
+                    break
+                }
                 if isCancelled() { return }
                 let path = url.path
 
@@ -153,12 +163,15 @@ public enum LargeFileScanner {
                     guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
                           let size = values.fileSize else { continue }
                     if Int64(size) >= thresholdBytes {
+                        let identity = Crypto.inode(of: childSafe.canonical)
                         items.append(ScannedItem(
                             path: childSafe.canonical,
                             size: Int64(size),
-                            modificationDate: values.contentModificationDate
+                            modificationDate: values.contentModificationDate,
+                            device: identity.map { Int32(clamping: Int64($0.0)) } ?? 0,
+                            inode: identity.map { UInt64($0.1) } ?? 0
                         ))
-                        totalBytes += Int64(size)
+                        totalBytes = CleanupAccounting.adding(totalBytes, Int64(size))
                     }
                 }
             }

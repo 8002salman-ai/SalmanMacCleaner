@@ -306,18 +306,20 @@ public enum ScanPolicy {
         let fdaAvailable = (fdaStatus == .granted || fdaStatus == .likelyFullAccess)
 
         let notGrantedReason: String?
-        if volume == nil {
-            notGrantedReason = NSLocalizedString("coverage.reason.volume_not_discovered", comment: "")
-        } else if !volume!.isLocal {
-            notGrantedReason = NSLocalizedString("coverage.reason.network_volume", comment: "")
-        } else if VolumeDiscoveryService.isTimeMachineVolume(volume!) {
-            notGrantedReason = NSLocalizedString("coverage.reason.time_machine", comment: "")
-        } else if volume!.isReadOnly {
-            notGrantedReason = NSLocalizedString("coverage.reason.read_only", comment: "")
-        } else if !fdaAvailable {
-            notGrantedReason = NSLocalizedString("coverage.reason.no_full_disk_access", comment: "")
+        if let volume {
+            if !volume.isLocal {
+                notGrantedReason = NSLocalizedString("coverage.reason.network_volume", comment: "")
+            } else if VolumeDiscoveryService.isTimeMachineVolume(volume) {
+                notGrantedReason = NSLocalizedString("coverage.reason.time_machine", comment: "")
+            } else if volume.isReadOnly {
+                notGrantedReason = NSLocalizedString("coverage.reason.read_only", comment: "")
+            } else if !fdaAvailable {
+                notGrantedReason = NSLocalizedString("coverage.reason.no_full_disk_access", comment: "")
+            } else {
+                notGrantedReason = nil
+            }
         } else {
-            notGrantedReason = nil
+            notGrantedReason = NSLocalizedString("coverage.reason.volume_not_discovered", comment: "")
         }
 
         var devices = ScanRoot.deviceGroup(for: url)

@@ -27,17 +27,20 @@ public struct InventoryCounts: Codable, Equatable {
     public var errors: Int = 0
     public var symlinksRejected: Int = 0
     public var changedDuringScan: Int = 0
+    /// Number of bounded/depth-limited portions not fully traversed.
+    public var truncated: Int = 0
 
     public init() {}
 
     public mutating func merge(_ other: InventoryCounts) {
         files += other.files
         folders += other.folders
-        bytesIndexed += other.bytesIndexed
+        bytesIndexed = CleanupAccounting.adding(bytesIndexed, other.bytesIndexed)
         denied += other.denied
         errors += other.errors
         symlinksRejected += other.symlinksRejected
         changedDuringScan += other.changedDuringScan
+        truncated += other.truncated
     }
 }
 
@@ -122,12 +125,14 @@ public struct FileInventoryScanner {
                 continue
             }
 
+            var enumerationErrors = 0
             guard let enumerator = FileManager.default.enumerator(
                 at: URL(fileURLWithPath: rootPath, isDirectory: true),
                 includingPropertiesForKeys: MetadataCollector.prefetchedKeys,
                 options: [],
                 errorHandler: { _, _ in
                     // Permission errors are counted; the scan continues.
+                    enumerationErrors += 1
                     return true
                 }
             ) else {
@@ -140,14 +145,22 @@ public struct FileInventoryScanner {
             }
 
             var rootCounts = InventoryCounts()
+            var rootTotals = InventoryCounts()
             var pendingRecords: [FileRecord] = []
+            var entriesVisited = 0
 
             for case let url as URL in enumerator {
+                entriesVisited += 1
+                guard entriesVisited <= 250_000 else {
+                    rootCounts.truncated += 1
+                    break
+                }
                 if isCancelled() { throw InventoryScannerError.cancelled }
                 if await gate.isPaused() {
                     await gate.waitIfPaused()
                 }
                 if enumerator.level > TraversalPolicy.maximumTraversalDepth {
+                    rootCounts.truncated += 1
                     enumerator.skipDescendants()
                     continue
                 }
@@ -227,6 +240,7 @@ public struct FileInventoryScanner {
                 if pendingRecords.count >= batchSize {
                     flush(&pendingRecords, sink: sink, root: root)
                     totals.merge(rootCounts)
+                    rootTotals.merge(rootCounts)
                     rootCounts = InventoryCounts()
                     counts(totals, path)
                     await Task.yield()
@@ -237,12 +251,16 @@ public struct FileInventoryScanner {
                 flush(&pendingRecords, sink: sink, root: root)
             }
             totals.merge(rootCounts)
+            rootTotals.merge(rootCounts)
+            rootTotals.errors += enumerationErrors
             counts(totals, rootPath)
 
-            let outcome: RootOutcome = rootCounts.denied > 0 || rootCounts.errors > 0
-                ? .partial(deniedPaths: rootCounts.denied, errors: rootCounts.errors)
+            let outcome: RootOutcome = rootTotals.denied > 0
+                || rootTotals.errors > 0
+                || rootTotals.truncated > 0
+                ? .partial(deniedPaths: rootTotals.denied, errors: rootTotals.errors + rootTotals.truncated)
                 : .scanned
-            results.append(RootScanResult(root: rootPath, outcome: outcome, counts: rootCounts))
+            results.append(RootScanResult(root: rootPath, outcome: outcome, counts: rootTotals))
         }
         return results
     }

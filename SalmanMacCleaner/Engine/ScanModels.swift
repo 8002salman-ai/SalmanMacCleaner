@@ -400,6 +400,7 @@ public struct AppRecord: Identifiable, Equatable {
     public var isCodeSigned: Bool?
     public var isQuarantined: Bool
     public var isSystemApp: Bool
+    public var isCurrentApp: Bool
     public var isUserOwned: Bool
     public var isRunning: Bool
     public var bundleSize: Int64
@@ -419,7 +420,8 @@ public struct AppRecord: Identifiable, Equatable {
                 isRunning: Bool,
                 bundleSize: Int64,
                 lastOpened: Date? = nil,
-                vendorName: String? = nil) {
+                vendorName: String? = nil,
+                isCurrentApp: Bool = false) {
         self.name = name
         self.bundlePath = bundlePath
         self.bundleID = bundleID
@@ -429,12 +431,31 @@ public struct AppRecord: Identifiable, Equatable {
         self.isCodeSigned = isCodeSigned
         self.isQuarantined = isQuarantined
         self.isSystemApp = isSystemApp
+        self.isCurrentApp = isCurrentApp
         self.isUserOwned = isUserOwned
         self.isRunning = isRunning
         self.bundleSize = bundleSize
         self.lastOpened = lastOpened
         self.vendorName = vendorName
     }
+}
+
+public enum LeftoverClassification: String, Codable, CaseIterable {
+    case installedAppData
+    case probableUninstalledAppLeftover
+    case appleSystemService
+    case unknownAmbiguous
+
+    public var title: String {
+        switch self {
+        case .installedAppData: return NSLocalizedString("leftovers.class.installed", comment: "")
+        case .probableUninstalledAppLeftover: return NSLocalizedString("leftovers.class.uninstalled", comment: "")
+        case .appleSystemService: return NSLocalizedString("leftovers.class.apple", comment: "")
+        case .unknownAmbiguous: return NSLocalizedString("leftovers.class.unknown", comment: "")
+        }
+    }
+
+    public var isSelectable: Bool { self == .probableUninstalledAppLeftover }
 }
 
 /// A leftover (support file whose owning app is gone). Confidence is derived
@@ -466,19 +487,33 @@ public struct LeftoverCandidate: Identifiable, Equatable {
     public var totalSize: Int64
     public var confidence: Confidence
     public var sourceRoot: String
+    /// Metadata-backed display name. Uninstalled identifiers intentionally
+    /// fall back to a truthful generic label rather than an invented mapping.
+    public var applicationName: String
+    public var publisher: String?
+    public var classification: LeftoverClassification
+    public var evidence: String
 
     public init(groupID: String,
                 owningBundleID: String,
                 paths: [String],
                 totalSize: Int64,
                 confidence: Confidence,
-                sourceRoot: String) {
+                sourceRoot: String,
+                applicationName: String = "",
+                publisher: String? = nil,
+                classification: LeftoverClassification = .unknownAmbiguous,
+                evidence: String = "") {
         self.groupID = groupID
         self.owningBundleID = owningBundleID
         self.paths = paths
         self.totalSize = totalSize
         self.confidence = confidence
         self.sourceRoot = sourceRoot
+        self.applicationName = applicationName.isEmpty ? owningBundleID : applicationName
+        self.publisher = publisher
+        self.classification = classification
+        self.evidence = evidence
     }
 }
 
@@ -502,7 +537,8 @@ public struct DuplicateCandidateGroup: Identifiable, Equatable {
 
     public var reclaimableEstimate: Int64 {
         guard files.count > 1 else { return 0 }
-        return size * Int64(files.count - 1)
+        let (value, overflowed) = max(size, 0).multipliedReportingOverflow(by: Int64(files.count - 1))
+        return overflowed ? Int64.max : value
     }
 }
 
@@ -769,6 +805,14 @@ public struct CleanupPlan: Codable, Equatable {
     }
 
     public var totalBytes: Int64 {
-        items.reduce(0) { $0 + $1.expectedSize }
+        CleanupAccounting.uniqueBytes(for: items.map {
+            CleanupItem(
+                path: $0.path,
+                size: $0.expectedSize,
+                kind: $0.category.rawValue,
+                device: $0.expectedDevice,
+                inode: $0.expectedInode
+            )
+        })
     }
 }

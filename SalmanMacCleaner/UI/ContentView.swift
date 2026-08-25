@@ -77,8 +77,8 @@ struct StatusAreaView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text("v\(displayVersion)")
-                .font(.caption.monospacedDigit().weight(.semibold))
+            Text(displayVersion)
+                .font(.callout.monospacedDigit().weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
@@ -101,10 +101,15 @@ struct StatusAreaView: View {
                 updateAvailable = await SparkleUpdaterController.hasPendingUpdate()
             }
         }
+        .onReceive(SparkleUpdaterController.shared.$availableVersion) { version in
+            updateAvailable = version != nil
+        }
     }
 
     private var displayVersion: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "1.1.3"
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+        let build = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "-"
+        return "v\(version) (\(build))"
     }
 
     private var pillKind: StatusPill.Kind {

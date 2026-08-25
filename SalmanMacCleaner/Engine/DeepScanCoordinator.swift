@@ -59,10 +59,15 @@ public final class DeepScanCoordinator: ObservableObject {
             return try ScanIndexStore(path: url.path)
         } catch {
             // Two distinct temporary locations; the second is under the home
-            // directory which must exist.
+            // directory which must exist. If both fail, surface a deterministic
+            // initialization failure rather than force-unwrapping filesystem I/O.
             let homeURL = PathSafety.userHome
                 .appendingPathComponent(".SalmanMacCleaner-Ephemeral-\(UUID().uuidString).sqlite")
-            return try! ScanIndexStore(path: homeURL.path)
+            do {
+                return try ScanIndexStore(path: homeURL.path)
+            } catch {
+                preconditionFailure("Unable to create scan index: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -276,17 +281,17 @@ public final class DeepScanCoordinator: ObservableObject {
                     classifiedBatch.append((record, verdict))
                     switch verdict.safety {
                     case .safe:
-                        safeBytes += record.allocatedSize
-                        candidateBytes += record.allocatedSize
+                        safeBytes = CleanupAccounting.adding(safeBytes, record.allocatedSize)
+                        candidateBytes = CleanupAccounting.adding(candidateBytes, record.allocatedSize)
                     case .review:
-                        reviewBytes += record.allocatedSize
-                        candidateBytes += record.allocatedSize
+                        reviewBytes = CleanupAccounting.adding(reviewBytes, record.allocatedSize)
+                        candidateBytes = CleanupAccounting.adding(candidateBytes, record.allocatedSize)
                     case .protected:
-                        protectedBytes += record.allocatedSize
+                        protectedBytes = CleanupAccounting.adding(protectedBytes, record.allocatedSize)
                     }
                     if record.allocatedSize > 0, depth(of: record.path, under: root.url.path) <= 2 {
                         let key = parentKey(of: record.path, root: root.url.path)
-                        mapAccumulator[key, default: 0] += record.allocatedSize
+                        mapAccumulator[key] = CleanupAccounting.adding(mapAccumulator[key] ?? 0, record.allocatedSize)
                         if mapAccumulator.count > 5000 {
                             mapAccumulator.removeAll()
                         }
@@ -320,6 +325,10 @@ public final class DeepScanCoordinator: ObservableObject {
             )
 
             // Replace optimistic outcomes with the scanner's real results.
+            // `counts` receives cumulative snapshots during the scan, so use
+            // the per-root final results here rather than adding them on top
+            // of the already-cumulative callback value.
+            totals = InventoryCounts()
             for result in results {
                 rootOutcomes[result.root] = result.outcome
                 totals.merge(result.counts)
@@ -373,7 +382,9 @@ public final class DeepScanCoordinator: ObservableObject {
                 } else {
                     let groups = try DuplicatePipeline.detect(candidates: candidates, isCancelled: { Task.isCancelled })
                     duplicateGroups = groups
-                    duplicateBytesEstimate = groups.reduce(0) { $0 + $1.reclaimableEstimate }
+                    duplicateBytesEstimate = groups.reduce(Int64(0)) {
+                        CleanupAccounting.adding($0, $1.reclaimableEstimate)
+                    }
                 }
             }
 
@@ -381,9 +392,9 @@ public final class DeepScanCoordinator: ObservableObject {
             await emitPhase(.buildingStorageMap)
             await emitProgress(force: true)
 
-            // Phase 12: reclaimable space.
+            // Phase 12: reclaimable space. Candidate bytes were added once
+            // during classification; do not double-count them in progress.
             await emitPhase(.calculatingReclaimable)
-            await aggregator.addCandidateBytes(candidateBytes)
             await emitProgress(force: true)
 
             // Phase 13: finalize — coverage from the real outcomes.

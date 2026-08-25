@@ -70,10 +70,11 @@ public enum DuplicatePipeline {
 
                     // Stage 6: clone uncertainty — allocated size may be
                     // shared by APFS clones, so label the estimate.
-                    let cloneUncertain = representatives.allSatisfy {
-                        $0.size != FileUtilities.fileSize(atPath: $0.path)
-                            && FileUtilities.fileSize(atPath: $0.path) == first.size
-                    }
+                    // APFS clone extents are not exposed by the portable
+                    // stat identity used here. Marking the estimate as
+                    // uncertain is safer than claiming every logical byte is
+                    // independently reclaimable.
+                    let cloneUncertain = true
                     groups.append(DuplicateCandidateGroup(
                         files: representatives,
                         size: first.size,
@@ -90,20 +91,7 @@ public enum DuplicatePipeline {
 
     /// Lightweight sample hash: first and last `sampleBytes`, streamed.
     static func sampleHash(_ path: String, size: Int64) -> String? {
-        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
-        defer { try? handle.close() }
-        let hasher = StreamingSHA256()
-
-        if let head = try? handle.read(upToCount: sampleBytes), !head.isEmpty {
-            hasher.feed(head)
-        }
-        if size > sampleBytes {
-            try? handle.seek(toOffset: UInt64(max(size - Int64(sampleBytes), 0)))
-            if let tail = try? handle.read(upToCount: sampleBytes), !tail.isEmpty {
-                hasher.feed(tail)
-            }
-        }
-        return hasher.finalize()
+        Crypto.sampleHash(ofFileAt: path, size: size, sampleBytes: sampleBytes)
     }
 
     /// Group files by (device, inode) so hard links to one file are one set.

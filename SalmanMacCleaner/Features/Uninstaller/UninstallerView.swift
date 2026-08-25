@@ -56,7 +56,7 @@ struct UninstallerView: View {
     }
 
     private var removableApps: [AppRecord] {
-        var filtered = apps.filter { !$0.isSystemApp }
+        var filtered = apps.filter { !$0.isSystemApp && !$0.isCurrentApp && $0.isUserOwned }
         if !searchText.isEmpty {
             filtered = filtered.filter {
                 $0.name.localizedCaseInsensitiveContains(searchText)
@@ -74,6 +74,23 @@ struct UninstallerView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
+                if let current = apps.first(where: \.isCurrentApp) {
+                    HStack(spacing: 7) {
+                        Image(systemName: "lock.shield.fill")
+                            .foregroundStyle(AuroraPalette.amber)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(current.name)
+                                .font(.caption.weight(.semibold))
+                            Text("apps.current_app")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 5)
+                    .accessibilityElement(children: .combine)
+                }
                 List(removableApps) { app in
                     Button {
                         select(app)
@@ -138,6 +155,9 @@ struct UninstallerView: View {
                         Text((app.bundleID ?? "—") + (app.version.map { " · v\($0)" } ?? ""))
                             .font(.callout)
                             .foregroundStyle(.secondary)
+                        Text(app.vendorName ?? NSLocalizedString("apps.publisher_unknown", comment: ""))
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                         Text(app.bundlePath)
                             .font(.caption)
                             .foregroundStyle(.tertiary)
@@ -281,23 +301,22 @@ struct UninstallerView: View {
                 ) else { return [] }
                 return entries.compactMap { entry in
                     let name = entry.lastPathComponent
-                    let bundleID = app.bundleID ?? ""
-                    let appName = app.name
-                    let matched: Bool
-                    if bundleID.isEmpty {
-                        matched = name == appName || name.contains(appName)
-                    } else {
-                        matched = name.contains(bundleID)
-                            || name == appName
-                            || (name.hasPrefix("group.") && name.contains(bundleID))
+                    guard let bundleID = app.bundleID,
+                          ResidualCorrelationEngine.exactBundleID(from: name) == bundleID else {
+                        // Never infer ownership from loose names. A missing
+                        // bundle id means there is no verified support match.
+                        return nil
                     }
-                    guard matched else { return nil }
                     guard !PathSafety.isProtectedFile(name: name, purpose: .scan) else { return nil }
                     let values = try? entry.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey])
+                    let fallback = Int64(values?.fileSize ?? 0)
+                    let identity = Crypto.inode(of: entry.path)
                     return ScannedItem(
                         path: entry.path,
-                        size: Int64(values?.fileSize ?? 0),
-                        isDirectory: values?.isDirectory ?? false
+                        size: CleanupAccounting.currentAllocatedBytes(at: entry.path, fallback: fallback),
+                        isDirectory: values?.isDirectory ?? false,
+                        device: identity.map { Int32(clamping: $0.0) } ?? 0,
+                        inode: identity.map { UInt64($0.1) } ?? 0
                     )
                 }
             }
@@ -323,14 +342,21 @@ struct UninstallerView: View {
 
     /// Bytes represented by the current explicit selection.
     private var selectedBytes: Int64 {
-        var total: Int64 = 0
+        var selected: [CleanupItem] = []
         if let app = selectedApp, selectedPaths.contains(app.bundlePath) {
-            total += app.bundleSize
+            let identity = Crypto.inode(of: app.bundlePath)
+            selected.append(CleanupItem(
+                path: app.bundlePath,
+                size: app.bundleSize,
+                kind: "application",
+                device: identity.map { Int32(clamping: $0.0) } ?? 0,
+                inode: identity.map { UInt64($0.1) } ?? 0
+            ))
         }
-        for item in matchedItems where selectedPaths.contains(item.path) {
-            total += item.size
-        }
-        return total
+        selected.append(contentsOf: matchedItems.filter { selectedPaths.contains($0.path) }.map {
+            CleanupItem(path: $0.path, size: $0.size, kind: "support", device: $0.device, inode: $0.inode)
+        })
+        return CleanupAccounting.uniqueBytes(for: selected)
     }
 
     /// Uninstall the selected app and only the support items the user
@@ -399,6 +425,10 @@ struct UninstallerView: View {
                 authorizedRoots: authorizedRoots,
                 skipped: built.rejections + unreadable,
                 selectedCount: built.selectedCount + unreadable.count,
+                selectedBytes: CleanupAccounting.adding(
+                    built.selectedBytes,
+                    unreadable.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.bytes) }
+                ),
                 progress: { fraction, detail in
                     Task { @MainActor in appState.updateProgress(fraction, detail: detail) }
                 },
@@ -473,12 +503,16 @@ struct UninstallerView: View {
             Text(String(
                 format: NSLocalizedString("cleanup.report.counts", comment: ""),
                 report.selectedCount,
+                FileUtilities.formattedBytes(report.selectedBytes),
                 report.plannedCount,
                 report.moved.count,
+                FileUtilities.formattedBytes(report.movedBytes),
                 report.previewed.count,
+                FileUtilities.formattedBytes(report.previewedBytes),
                 report.skippedCount,
                 report.failedCount,
-                FileUtilities.formattedBytes(report.previewOnly ? report.previewedBytes : report.movedBytes)
+                report.notProcessed,
+                FileUtilities.formattedBytes(report.remainingBytes)
             ))
             .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)

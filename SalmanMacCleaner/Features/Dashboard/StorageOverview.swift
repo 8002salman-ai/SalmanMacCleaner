@@ -11,8 +11,11 @@ import Foundation
 
 public enum StorageOverview {
 
-    /// Snapshot the home volume's usage. Returns nil when unavailable.
-    public static func snapshot() -> StorageSnapshot? {
+    /// Snapshot the home volume's usage. Returns nil when unavailable. The
+    /// optional cancellation probe keeps Health Check responsive while its
+    /// bounded category measurements run.
+    public static func snapshot(isCancelled: @escaping () -> Bool = { false }) -> StorageSnapshot? {
+        guard !isCancelled() else { return nil }
         let home = FileManager.default.homeDirectoryForCurrentUser
         guard let values = try? home.resourceValues(forKeys: [
             .volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityKey,
@@ -33,14 +36,14 @@ public enum StorageOverview {
             used: used,
             purgeable: purgeable,
             volumeName: name,
-            categories: measureCategories()
+            categories: measureCategories(isCancelled: isCancelled)
         )
     }
 
     /// Measure the well-known top-level folders under the home directory.
     /// This is intentionally shallow (one level) and never descends into
     /// Library internals.
-    public static func measureCategories() -> [DiskUsageCategory] {
+    public static func measureCategories(isCancelled: @escaping () -> Bool = { false }) -> [DiskUsageCategory] {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let definitions: [(id: String, name: String, icon: String, tint: String)] = [
             ("library", "Library", "books.vertical.fill", "60A5FA"),
@@ -53,11 +56,12 @@ public enum StorageOverview {
             ("music", "Music", "music.note", "4ADE80")
         ]
 
-        return definitions.map { definition in
+        return definitions.compactMap { definition in
+            guard !isCancelled() else { return nil }
             let url = home.appendingPathComponent(definition.name, isDirectory: true)
             // Depth 2 keeps the measurement bounded while still producing a
             // representative size for deep folders like ~/Library.
-            let bytes = directorySize(url: url, depth: 2)
+            let bytes = directorySize(url: url, depth: 2, isCancelled: isCancelled)
             return DiskUsageCategory(
                 id: definition.id,
                 title: definition.name,
@@ -68,35 +72,86 @@ public enum StorageOverview {
         }
     }
 
-    /// Shallow directory size. `depth` limits recursion (0 = direct children
-    /// only, including their recursive totals for folders that are fast).
-    /// Stays on the home device and never follows symlinks.
-    public static func directorySize(url: URL, depth: Int) -> Int64 {
-        guard depth >= 0 else { return 0 }
+    public struct DirectoryMeasurement: Equatable {
+        public var bytes: Int64
+        public var entriesVisited: Int
+        public var inaccessibleEntries: Int
+        public var truncated: Bool
+
+        public init(bytes: Int64 = 0,
+                    entriesVisited: Int = 0,
+                    inaccessibleEntries: Int = 0,
+                    truncated: Bool = false) {
+            self.bytes = max(bytes, 0)
+            self.entriesVisited = max(entriesVisited, 0)
+            self.inaccessibleEntries = max(inaccessibleEntries, 0)
+            self.truncated = truncated
+        }
+    }
+
+    /// Bounded directory measurement with explicit coverage signals. The
+    /// legacy `directorySize` wrapper below intentionally keeps its simple
+    /// byte-only API for existing dashboard callers.
+    public static func directoryMeasurement(
+        url: URL,
+        depth: Int,
+        isCancelled: @escaping () -> Bool = { false }
+    ) -> DirectoryMeasurement {
+        guard depth >= 0 else { return DirectoryMeasurement(truncated: true) }
         let keys: [URLResourceKey] = [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .fileAllocatedSizeKey]
+        var inaccessible = 0
         guard let enumerator = FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: keys,
             options: [.skipsHiddenFiles],
-            errorHandler: { _, _ in false }
+            errorHandler: { _, _ in
+                inaccessible += 1
+                return true
+            }
         ) else {
-            return 0
+            return DirectoryMeasurement(inaccessibleEntries: 1)
         }
 
         var total: Int64 = 0
+        var entriesVisited = 0
+        var truncated = false
         for case let fileURL as URL in enumerator {
-            guard let values = try? fileURL.resourceValues(forKeys: Set(keys)) else { continue }
+            entriesVisited += 1
+            guard entriesVisited <= 250_000 else {
+                truncated = true
+                break
+            }
+            guard !isCancelled() else {
+                truncated = true
+                break
+            }
+            guard let values = try? fileURL.resourceValues(forKeys: Set(keys)) else {
+                inaccessible += 1
+                continue
+            }
             if values.isSymbolicLink == true { continue }
             if values.isDirectory == true {
                 if enumerator.level > depth {
+                    truncated = true
                     enumerator.skipDescendants()
                 }
                 continue
             }
             if values.isRegularFile == true {
-                total += Int64(values.fileSize ?? 0)
+                total = CleanupAccounting.adding(total, Int64(values.fileSize ?? 0))
             }
         }
-        return total
+        return DirectoryMeasurement(
+            bytes: total,
+            entriesVisited: entriesVisited,
+            inaccessibleEntries: inaccessible,
+            truncated: truncated
+        )
+    }
+
+    /// Shallow directory size. `depth` limits recursion and symlinks are never
+    /// followed.
+    public static func directorySize(url: URL, depth: Int, isCancelled: @escaping () -> Bool = { false }) -> Int64 {
+        directoryMeasurement(url: url, depth: depth, isCancelled: isCancelled).bytes
     }
 }

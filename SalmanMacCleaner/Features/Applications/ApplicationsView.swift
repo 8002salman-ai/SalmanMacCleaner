@@ -108,10 +108,17 @@ struct AppInventoryRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                Text(app.vendorName ?? NSLocalizedString("apps.publisher_unknown", comment: ""))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
             }
             Spacer()
             if app.isSystemApp {
                 StatusPill("apps.system_app", kind: .unavailable)
+            }
+            if app.isCurrentApp {
+                StatusPill("apps.current_app", kind: .info)
             }
             if app.isRunning {
                 StatusPill("apps.running", kind: .info)

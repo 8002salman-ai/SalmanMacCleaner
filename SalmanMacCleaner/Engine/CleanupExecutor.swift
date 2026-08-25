@@ -46,7 +46,22 @@ public struct SystemTrashMover: TrashMover {
             at: URL(fileURLWithPath: path),
             resultingItemURL: &resultingURL
         )
-        return (resultingURL as URL?)?.path ?? ""
+        guard let destination = (resultingURL as URL?),
+              FileManager.default.fileExists(atPath: destination.path) else {
+            throw CleanupMoveError.destinationNotVerified(path)
+        }
+        return destination.path
+    }
+}
+
+public enum CleanupMoveError: LocalizedError, Equatable {
+    case destinationNotVerified(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .destinationNotVerified(let path):
+            return NSLocalizedString("cleanup.error.destination_not_verified", comment: "") + " \(path)"
+        }
     }
 }
 
@@ -71,6 +86,12 @@ public struct ExecutedCleanupResult {
     public var previewedBytes: Int64
     /// Bytes attached to skipped selections.
     public var skippedBytes: Int64
+    /// Bytes associated with items the mover or validator refused.
+    public var failedBytes: Int64
+    /// Bytes that still exist after reconciliation (failed or untouched).
+    public var remainingBytes: Int64
+    /// Unique selected bytes captured when the run started.
+    public var selectedBytes: Int64
     public var previewOnly: Bool
     /// True when the user cancelled mid-run.
     public var cancelled: Bool
@@ -89,6 +110,9 @@ public struct ExecutedCleanupResult {
                 movedBytes: Int64 = 0,
                 previewedBytes: Int64 = 0,
                 skippedBytes: Int64 = 0,
+                failedBytes: Int64 = 0,
+                remainingBytes: Int64 = 0,
+                selectedBytes: Int64 = 0,
                 previewOnly: Bool,
                 cancelled: Bool = false,
                 notProcessed: Int = 0,
@@ -102,6 +126,9 @@ public struct ExecutedCleanupResult {
         self.movedBytes = movedBytes
         self.previewedBytes = previewedBytes
         self.skippedBytes = skippedBytes
+        self.failedBytes = failedBytes
+        self.remainingBytes = remainingBytes
+        self.selectedBytes = selectedBytes
         self.previewOnly = previewOnly
         self.cancelled = cancelled
         self.notProcessed = notProcessed
@@ -203,9 +230,16 @@ public final class CleanupExecutor: ObservableObject {
     public static let shared = CleanupExecutor()
 
     private let trashMover: TrashMover
+    private var cancellationRequested = false
 
     public init(trashMover: TrashMover = SystemTrashMover()) {
         self.trashMover = trashMover
+    }
+
+    /// Request cancellation between cleanup items. The current Trash API call
+    /// is allowed to finish; no later item is touched.
+    public func cancel() {
+        cancellationRequested = true
     }
 
     /// Execute a plan. `previewOnly` plans touch nothing; otherwise each item
@@ -226,9 +260,11 @@ public final class CleanupExecutor: ObservableObject {
         authorizedRoots: [String] = [],
         skipped: [(path: String, reason: String, bytes: Int64)] = [],
         selectedCount: Int? = nil,
+        selectedBytes: Int64? = nil,
         progress: @escaping (Double, String?) -> Void,
         isCancelled: @escaping () -> Bool
     ) async -> ExecutedCleanupResult {
+        cancellationRequested = false
         isRunning = true
         defer {
             isRunning = false
@@ -237,55 +273,121 @@ public final class CleanupExecutor: ObservableObject {
 
         var result = ExecutedCleanupResult(previewOnly: plan.previewOnly)
         result.skipped = skipped
-        result.skippedBytes = skipped.reduce(Int64(0)) { total, entry in total + entry.bytes }
+        let skippedItems = skipped.map {
+            CleanupItem(path: $0.path, size: $0.bytes, kind: "skipped")
+        }
+        result.skippedBytes = CleanupAccounting.uniqueBytes(for: skippedItems)
         result.selectedCount = selectedCount ?? (plan.items.count + skipped.count)
+        let plannedItems = plan.items.map {
+            CleanupItem(
+                path: $0.path,
+                size: $0.expectedSize,
+                kind: $0.category.rawValue,
+                device: $0.expectedDevice,
+                inode: $0.expectedInode
+            )
+        }
+        let selectedItems = plannedItems + skippedItems
+        result.selectedBytes = selectedBytes.map { max($0, 0) } ?? CleanupAccounting.uniqueBytes(for: selectedItems)
         result.notProcessed = plan.items.count
 
         let total = max(plan.items.count, 1)
+        var measuredSizes: [String: Int64] = [:]
+        func reconcile() async {
+            let moved = result.moved
+            let failed = result.failures
+            let sizes = measuredSizes
+            let breakdown = await Task.detached(priority: .utility) {
+                CleanupAccounting.reconcile(
+                    selected: selectedItems,
+                    moved: moved,
+                    failed: failed,
+                    sizeOverrides: sizes
+                )
+            }.value
+            result.selectedBytes = selectedBytes.map { max($0, 0) } ?? breakdown.selectedBytes
+            result.movedBytes = breakdown.movedBytes
+            result.failedBytes = breakdown.failedBytes
+            result.remainingBytes = breakdown.remainingBytes
+            if plan.previewOnly {
+                let previewedPaths = Set(result.previewed.map(CleanupAccounting.standardizedPath))
+                let previewItems = selectedItems.compactMap { item -> CleanupItem? in
+                    let path = CleanupAccounting.standardizedPath(item.path)
+                    guard previewedPaths.contains(path) else { return nil }
+                    return CleanupItem(
+                        path: path,
+                        size: sizes[path] ?? item.size,
+                        kind: item.kind,
+                        device: item.device,
+                        inode: item.inode
+                    )
+                }
+                result.previewedBytes = CleanupAccounting.uniqueBytes(for: previewItems)
+            }
+            result.bytesReclaimed = plan.previewOnly ? result.previewedBytes : result.movedBytes
+        }
 
         for (index, item) in plan.items.enumerated() {
-            if isCancelled() {
+            if isCancelled() || cancellationRequested {
                 result.cancelled = true
                 result.notProcessed = plan.items.count - index
+                await reconcile()
                 progress(1, nil)
                 return result
             }
             result.notProcessed = plan.items.count - index
             progress(Double(index) / Double(total), item.path)
 
-            switch CleanupSafetyValidator.validate(
-                item: item,
-                allowBundles: allowBundles,
-                libraryRoots: libraryRoots,
-                reviewRoots: reviewRoots,
-                authorizedRoots: authorizedRoots
-            ) {
+            let validation = await Task.detached(priority: .utility) {
+                CleanupSafetyValidator.validate(
+                    item: item,
+                    allowBundles: allowBundles,
+                    libraryRoots: libraryRoots,
+                    reviewRoots: reviewRoots,
+                    authorizedRoots: authorizedRoots
+                )
+            }.value
+            switch validation {
             case .failure(let failure):
                 result.failures.append((item.path, failure.localizedDescription))
+                result.failedBytes = CleanupAccounting.adding(result.failedBytes, max(item.expectedSize, 0))
             case .success(let validated):
                 currentItem = validated.path
+                // Capture the freshest size immediately before the action. A
+                // scan's estimate is only a fallback if metadata disappeared.
+                let currentBytes = await Task.detached(priority: .utility) {
+                    CleanupAccounting.currentAllocatedBytes(at: validated.path, fallback: validated.expectedSize)
+                }.value
+                measuredSizes[validated.path] = currentBytes
                 if plan.previewOnly {
                     // Preview never reaches the mover: this branch performs
                     // no filesystem mutation at all.
                     result.previewed.append(validated.path)
-                    result.previewedBytes += validated.expectedSize
-                    result.bytesReclaimed += validated.expectedSize
+                    result.previewedBytes = CleanupAccounting.adding(result.previewedBytes, currentBytes)
+                    result.bytesReclaimed = CleanupAccounting.adding(result.bytesReclaimed, currentBytes)
                 } else {
                     do {
-                        let destination = try trashMover.moveToTrash(validated.path)
+                        let mover = trashMover
+                        let destination = try await Task.detached(priority: .userInitiated) {
+                            try mover.moveToTrash(validated.path)
+                        }.value
                         result.moved.append(validated.path)
-                        result.movedBytes += validated.expectedSize
-                        result.bytesReclaimed += validated.expectedSize
+                        result.movedBytes = CleanupAccounting.adding(result.movedBytes, currentBytes)
+                        result.bytesReclaimed = CleanupAccounting.adding(result.bytesReclaimed, currentBytes)
                         if !destination.isEmpty {
                             result.trashDestinations[validated.path] = destination
                         }
                     } catch {
                         result.failures.append((validated.path, error.localizedDescription))
+                        result.failedBytes = CleanupAccounting.adding(result.failedBytes, currentBytes)
                     }
                 }
             }
+            // Let the main actor process a cancellation request between items.
+            await Task.yield()
         }
         result.notProcessed = 0
+        await reconcile()
         progress(1, nil)
         return result
     }

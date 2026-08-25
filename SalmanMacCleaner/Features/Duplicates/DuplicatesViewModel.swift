@@ -20,10 +20,25 @@ final class DuplicatesViewModel: ObservableObject {
     @Published var searchText = ""
     @Published var selection: Set<UUID> = []
     @Published var showConfirmation = false
+    @Published var cleanupReport: CleanupResult?
     @Published var folderPickerPresented = false
     @Published var hasRun = false
+    @Published var coverageReport: DuplicateScanReport?
 
     private var scanToken = UUID()
+
+    init() {
+        // Duplicate detection is useful for regenerable stores by default, not
+        // for personal documents. Personal folders remain available only after
+        // an explicit folder-pick grant.
+        let defaults = ScanPolicy.quickLibraryRoots(home: PathSafety.userHome)
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        roots = defaults.filter {
+            FileManager.default.fileExists(atPath: $0.path)
+                && PathSafety.kind(of: $0.path) == .directory
+                && PathSafety.isOwnedByCurrentUser($0.path)
+        }
+    }
 
     var visibleGroups: [DuplicateGroup] {
         if searchText.isEmpty {
@@ -35,18 +50,27 @@ final class DuplicatesViewModel: ObservableObject {
     }
 
     var totalReclaimable: Int64 {
-        groups.reduce(0) { $0 + $1.reclaimableBytes }
+        groups.reduce(0) { CleanupAccounting.adding($0, $1.reclaimableBytes) }
+    }
+
+    var coverageSummary: String? {
+        guard let report = coverageReport else { return nil }
+        if report.isPartial {
+            return String(format: NSLocalizedString("duplicates.coverage.partial", comment: ""),
+                          report.filesConsidered,
+                          report.directoriesVisited,
+                          report.deniedPaths)
+        }
+        return String(format: NSLocalizedString("duplicates.coverage.complete", comment: ""),
+                      report.filesConsidered,
+                      report.directoriesVisited)
     }
 
     var selectedBytes: Int64 {
-        let selectedIDs = selection
-        var bytes: Int64 = 0
-        for group in groups {
-            for file in group.files where selectedIDs.contains(file.id) {
-                bytes += file.size
-            }
+        let selectedItems = groups.flatMap { group in
+            group.removableFiles.filter { selection.contains($0.id) }
         }
-        return bytes
+        return CleanupAccounting.uniqueBytes(for: selectedItems)
     }
 
     func addRoot(_ url: URL?) {
@@ -69,6 +93,7 @@ final class DuplicatesViewModel: ObservableObject {
         groups = []
         selection = []
         hasRun = false
+        coverageReport = nil
         progress = 0
     }
 
@@ -82,14 +107,16 @@ final class DuplicatesViewModel: ObservableObject {
         progress = 0
         selection = []
         groups = []
+        cleanupReport = nil
+        coverageReport = nil
 
         let rootsSnapshot = roots
         let depth = settings.maxScanDepth
-        let operation = ScanOperation<[DuplicateGroup]>(
+        let operation = ScanOperation<DuplicateScanReport>(
             title: NSLocalizedString("duplicates.scanning", comment: ""),
             roots: rootsSnapshot.map { $0.path }
         ) { progressCallback, isCancelled in
-            try DuplicateFinder.scan(
+            try DuplicateFinder.scanReport(
                 roots: rootsSnapshot,
                 maxDepth: depth,
                 progress: progressCallback,
@@ -108,12 +135,13 @@ final class DuplicatesViewModel: ObservableObject {
             self.isScanning = false
             self.hasRun = true
             switch outcome {
-            case .success(let found):
-                self.groups = found
+            case .success(let report):
+                self.coverageReport = report
+                self.groups = report.groups
                 activity.endActivity(message: String(
                     format: NSLocalizedString("duplicates.results.summary", comment: ""),
-                    found.count,
-                    FileUtilities.formattedBytes(found.reduce(0) { $0 + $1.reclaimableBytes })
+                    report.groups.count,
+                    FileUtilities.formattedBytes(report.groups.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.reclaimableBytes) })
                 ))
             case .failure(let error):
                 if (error as? DuplicateScanError) == .cancelled || (error as? ScanError) == .cancelled {
@@ -133,12 +161,22 @@ final class DuplicatesViewModel: ObservableObject {
         var items: [CleanupItem] = []
         for group in groups {
             for file in group.files where selection.contains(file.id) {
-                items.append(CleanupItem(path: file.path, size: file.size, kind: "file"))
+                items.append(CleanupItem(
+                    path: file.path,
+                    size: file.size,
+                    kind: "file",
+                    device: file.device,
+                    inode: file.inode
+                ))
             }
         }
         guard !items.isEmpty else { return }
 
-        let root = roots.first?.path ?? PathSafety.userHome.path
+        // The engine accepts one containment root; use the home boundary and
+        // keep the explicitly selected duplicate roots as the narrower
+        // allowlist so items from a second root are not rejected or widened.
+        let root = PathSafety.userHome.path
+        let allowedRoots = roots.map { $0.standardizedFileURL.path }
         let previewOnly = settings.dryRun
 
         activity.beginActivity(.cleaning(detail: NSLocalizedString("duplicates.cleaning", comment: "")))
@@ -147,29 +185,51 @@ final class DuplicatesViewModel: ObservableObject {
                 items: items,
                 root: root,
                 previewOnly: previewOnly,
+                allowedRoots: allowedRoots,
                 progress: { fraction, detail in
                     Task { @MainActor in activity.updateProgress(fraction, detail: detail) }
                 },
                 isCancelled: { Task.isCancelled }
             )
             if Task.isCancelled { return }
+            self.cleanupReport = outcome
 
             history.record(HistoryEntry(
                 action: NSLocalizedString("history.action.duplicates", comment: ""),
                 category: "duplicates",
-                itemCount: items.count,
-                bytes: outcome.totalBytes,
+                itemCount: outcome.succeededCount,
+                bytes: previewOnly ? outcome.previewedBytes : outcome.movedBytes,
                 dryRun: previewOnly,
                 root: root
             ))
-            activity.endActivity(message: String(
-                format: previewOnly
-                    ? NSLocalizedString("duplicates.preview_done", comment: "")
-                    : NSLocalizedString("duplicates.clean_done", comment: ""),
-                outcome.succeededCount
+            activity.sessionStore.recordCleanup(CleanupHistoryRecord(
+                action: NSLocalizedString("history.action.duplicates", comment: ""),
+                category: "duplicates",
+                itemCount: outcome.succeededCount,
+                bytes: previewOnly ? outcome.previewedBytes : outcome.movedBytes,
+                previewOnly: previewOnly,
+                movedCount: outcome.trashed.count,
+                failedCount: outcome.failedCount,
+                root: root
             ))
-            self.groups = []
-            self.selection = []
+            activity.endActivity(message: outcome.cancelled
+                ? NSLocalizedString("cleanup.report.cancelled", comment: "")
+                : String(
+                    format: previewOnly
+                        ? NSLocalizedString("duplicates.preview_done", comment: "")
+                        : NSLocalizedString("duplicates.clean_done", comment: ""),
+                    outcome.succeededCount
+                ))
+            if !previewOnly {
+                let movedPaths = Set(outcome.trashed.map(\.path))
+                let movedIDs = Set(self.groups.flatMap { $0.files.filter { movedPaths.contains($0.path) } }.map(\.id))
+                self.groups = self.groups.compactMap { group in
+                    var updated = group
+                    updated.files.removeAll { movedPaths.contains($0.path) }
+                    return updated.files.count > 1 ? updated : nil
+                }
+                self.selection.subtract(movedIDs)
+            }
         }
         withExtendedLifetime(task) {}
     }

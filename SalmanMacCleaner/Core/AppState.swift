@@ -22,8 +22,8 @@ public enum ActivityPhase: Equatable {
     /// Whether the stop button should be offered for this phase.
     public var isCancellable: Bool {
         switch self {
-        case .scanning, .hashing: return true
-        case .idle, .cleaning, .finished, .failed: return false
+        case .scanning, .hashing, .cleaning: return true
+        case .idle, .finished, .failed: return false
         }
     }
 }
@@ -106,6 +106,11 @@ public final class AppState: ObservableObject {
             activityPhase = .idle
             isBusy = false
             progress = 0
+        } else if case .cleaning = activityPhase {
+            CleanupEngine.shared.cancel()
+            CleanupExecutor.shared.cancel()
+            // Keep the activity visible until the executor returns its exact
+            // partial result; it will transition to finished/idle itself.
         }
     }
 }

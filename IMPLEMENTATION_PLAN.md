@@ -1,39 +1,25 @@
-# Implementation Plan — Aurora Glass Upgrade
+# v1.1.4 repair checklist
 
-Status legend: ✅ done · 🔜 this phase
+Baseline verified before edits on `arena/01a03a86-salmanmaccleaner`: `924fd26 fix: prevent Space Lens crashes and show app version`, `MARKETING_VERSION = 1.1.3`, `CURRENT_PROJECT_VERSION = 3`.
 
-## 1. Existing-code audit (completed 2026-08-25)
+## Root causes mapped to the existing code
 
-| # | Area | Finding |
-|---|------|---------|
-| 1 | Swift sources | 38 files, all non-empty, tree-sitter parse-clean, referenced by `project.pbxproj`. |
-| 2 | Target membership | App target + hosted XCTest target, shared scheme, ad-hoc signing, sandbox + hardened runtime enabled. |
-| 3 | Entitlements | App Sandbox + user-selected file R/W + downloads R/W. Suitable for the direct-distribution edition; deep scanning depends on Full Disk Access granted by the user in System Settings. |
-| 4 | Path-safety rules | Central `PathSafety` policy: canonicalization, symlink containment, ownership, device boundaries, protected roots/names/suffixes, personal-folder protection. **Kept and extended** — never weakened. |
-| 5 | Preview/cleanup | Dry-run ON by default, explicit selection, second confirmation, `trashItem` only, revalidation before every mutation. Preserved; extended with a three-layer plan→validate→execute pipeline. |
-| 6 | Uninstaller bug | **Root cause:** `Uninstaller.discoverApplications()` enumerates `~/Applications` only — on typical machines that yields ≈2 apps and never `/Applications`. Fix: new `ApplicationInventoryService` scanning `/Applications`, `~/Applications`, `/System/Applications` (protected/read-only) and nested locations, deduped by canonical path + bundle id. |
-| 7 | Updater | None. Sparkle 2 integrated via Swift Package Manager with availability guards; dev builds disable updates honestly until a signed feed exists. |
-| 8 | Tests | 6 files / 38 tests exist for safety, cleanup, duplicates, settings/history, scan lifecycle, startup. Extended with engine, classifier, inventory, residuals, plan/executor, index-store, fixture E2E and updater-config tests. |
-| 9 | Git | Branch `arena/01a0356d-salmanmaccleaner` at `85468d2`, matches `origin`. No force-push; logical commits per stage. |
+| Area | Root cause | Targeted files/types |
+| --- | --- | --- |
+| Safety/accounting | Feature screens still call the legacy `CleanupEngine` directly; expected scan sizes are reused after a move, hard-link and parent/child totals are not uniformly reconciled, and several result screens clear failed/preview items. | `CleanupEngine`, `CleanupPlanBuilder`, `CleanupExecutor`, `ResultsWorkspaceModel`, large/developer/duplicate/leftover views |
+| FDA | Global banner state is inferred from a small probe but module coverage failures are not represented separately; refresh/status presentation is duplicated. | `PermissionService`, `ContentView`, `PermissionsView`, `SharedComponents` |
+| Smart Care | The primary action is only a Quick Deep Scan and has no aggregate health snapshot, live phase model, cancellation, or factor evidence. | `SmartCareView`, new `HealthCheckService` |
+| Space Lens | The scanner recursively rebuilds without canonical identity tracking, depth limits turn measured folders into zero-sized nodes, root state selection hides valid empty scans, and the packer places children while avoiding the root circle itself—so one giant/empty circle results. | `SpaceLensEngine`, `SpaceLensViewModel`, `BubblePacker`, `SpaceLensView` |
+| Developer Caches | Only 13 categories exist, all categories are initially selected, detection is absent, directory measurement is shallow, and the view has no detected-state/category filter/cancel/refresh review controls. | `DeveloperCacheCategory`, `DeveloperCacheScanner`, `DeveloperCachesViewModel`, `DeveloperCachesView` |
+| App leftovers/inventory | The UI uses the raw bundle ID as the primary name; Apple services and installed/running/ambiguous groups are not modeled as separate classifications. App discovery omits CoreServices and the running app when launched outside an app root; uninstaller matching falls back to loose name substrings. | `AppRecord`, `LeftoverCandidate`, `ApplicationInventoryService`, `ResidualCorrelationEngine`, `AppLeftoversView`, `UninstallerView` |
+| Duplicates | Root presets are not offered before the folder picker; hard-link/selection byte accounting is separate from cleanup accounting and rows lack explicit exact-match evidence/actions. | `DuplicateFinder`, `DuplicatesViewModel`, `DuplicatesView` |
+| Layout/accessibility | Shared hero screens use page-level scrolling, action typography is inconsistent, and several rows lack consistent glass/hover/focus/tooltip treatment. | `HeroScreenView`, `GlassComponents`, module result views |
+| Release/quality | Version is read from the bundle but fallback text is stale; no v1.1.4/build 4 metadata or focused regression tests for the repaired invariants. | `project.pbxproj`, `CHANGELOG.md`, tests |
 
-## 2. Work stages
+## Safety invariants kept throughout
 
-1. **Architecture & scan model** — `Engine/` package: ScanModels, TraversalPolicy, VolumeDiscoveryService, MetadataCollector, FileInventoryScanner, ScanPolicy (Quick/Balanced/Deep/Custom), JunkClassifier (SAFE/REVIEW/PROTECTED), ApplicationInventoryService, ResidualCorrelationEngine, DuplicatePipeline, ScanProgressAggregator, ScanCoverageReport, ScanIndexStore (SQLite, schema-migrated, checkpointed), CleanupPlanBuilder, CleanupSafetyValidator, CleanupExecutor, IgnoreListStore, ScanGate (pause/resume), DeepScanCoordinator (actor + AsyncStream), IncrementalScanSupport (public FSEvents), MachOArchitecture, ProcessSampler.
-2. **Aurora Glass design system** — semantic tokens (midnight #100025, indigo #1B0648, violet #5F14C7, electric purple #8C35FF, magenta #F02FD0, cyan #5DDCFF, success #41D18A, amber #FFC857, coral #FF5C76), light/dark variants, accessibility environment (Reduce Motion/Transparency, Increase Contrast), aurora background with radial illumination, glass surfaces, native Liquid Glass on macOS 26 behind `#available` + `#if compiler(>=6.2)`.
-3. **Sidebar & heroes** — 20-module sidebar (MAIN/CLEANUP/STORAGE/APPLICATIONS/HEALTH/OTHER) with original per-module Canvas artwork, hero screens with scope/scan-mode selectors, capability lists, last-scan info.
-4. **Deep scan engine + results workspace** — 13 real phases, honest progress/coverage, summary ring, tiles, category navigation, virtualized item list, sticky action bar with deliberate Preview-Mode control.
-5. **Space Lens** — hierarchical allocated-size tree, capped children + "Other" aggregation, Canvas circle packing, hover sync, drill-in, breadcrumbs, back/forward.
-6. **Applications/Uninstaller/Leftovers** — inventory from all app roots; exact bundle-id/container/preference-domain matching only; leftover confidence HIGH/MEDIUM/CAUTIOUS; system apps protected.
-7. **Health modules** — Performance (thermal, memory/CPU evidence), Security Audit (FDA probe, quarantine xattr, unsigned agents — no fake malware claims), Permissions (FDA onboarding flow, probe wording: likely/limited/not-determined/denied).
-8. **Sparkle updater + release workflow** — SPM integration, guarded controller, appcast template, GitHub Actions CI + release (Developer ID, notarization, stapling, Sparkle EdDSA), secrets documented, no secrets committed.
-9. **Tests & docs** — fixture-based engine tests, E2E cleanup flow, README/SECURITY/Distribution/Sparkle docs, CHANGELOG.
-10. **Final verification** — regenerate `project.pbxproj` with all new files, structural validator, tree-sitter parse of every file, cross-reference checks, commit + push.
-
-## 3. Honesty constraints (never violated)
-
-- No fake scan totals, fake progress, fake malware detection, fake update results, placebo "optimization".
-- Unavailable features are shown with a technically accurate reason.
-- SIP is never bypassed; FDA is requested via System Settings by the user.
-- Coverage reports use precise wording; "Entire Mac scanned" is never displayed unless true.
-- Personal data, browser sessions, credentials, Time Machine and VM disks stay PROTECTED.
-- Only SAFE items are smart-selected; REVIEW and PROTECTED are never auto-selected.
+- Preview is the default and never calls a Trash mover.
+- Real cleanup is selected-item-only and uses `FileManager.trashItem` through the existing executor.
+- Canonical containment, ownership, symlink, protected-path, running-app, and category allowlist checks are revalidated immediately before each move.
+- Personal data, Apple/system services, the cleaner itself, ambiguous leftovers, active simulator/user data, and failed/unknown items remain protected or review-only.
+- All totals distinguish candidate, selected, successfully moved, failed, previewed, and currently remaining bytes; no stale cached total is presented as reclaimed space.

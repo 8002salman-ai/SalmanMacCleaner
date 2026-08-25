@@ -280,7 +280,7 @@ public enum JunkClassifier {
         for root in roots {
             let normalizedRoot = root.hasSuffix("/") && root != "/" ? String(root.dropLast()) : root
             if standardized == normalizedRoot || standardized.hasPrefix(normalizedRoot + "/") {
-                if best == nil || normalizedRoot.count > best!.count {
+                if best.map({ normalizedRoot.count > $0.count }) ?? true {
                     best = normalizedRoot
                 }
             }

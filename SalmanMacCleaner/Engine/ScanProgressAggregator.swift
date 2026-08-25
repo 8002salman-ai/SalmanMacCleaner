@@ -23,8 +23,11 @@ public actor ScanProgressAggregator {
 
     public func begin(phase: ScanPhase) {
         self.phase = phase
+        self.counters = InventoryCounts()
+        self.candidateBytes = 0
         self.currentPath = nil
         self.explicitFraction = nil
+        self.startedAt = Date()
         self.lastEmit = Date.distantPast
     }
 
@@ -37,17 +40,18 @@ public actor ScanProgressAggregator {
     }
 
     public func addCandidateBytes(_ bytes: Int64) {
-        candidateBytes += bytes
+        candidateBytes = CleanupAccounting.adding(candidateBytes, bytes)
     }
 
     public func merge(counts: InventoryCounts) {
         counters.files += counts.files
         counters.folders += counts.folders
-        counters.bytesIndexed += counts.bytesIndexed
+        counters.bytesIndexed = CleanupAccounting.adding(counters.bytesIndexed, counts.bytesIndexed)
         counters.denied += counts.denied
         counters.errors += counts.errors
         counters.symlinksRejected += counts.symlinksRejected
         counters.changedDuringScan += counts.changedDuringScan
+        counters.truncated += counts.truncated
     }
 
     /// Returns a snapshot at most every 0.1 s to keep UI updates batched.

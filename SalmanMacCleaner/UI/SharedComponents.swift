@@ -146,6 +146,58 @@ struct SelectionSummaryBar: View {
     }
 }
 
+// MARK: - Cleanup result summary
+
+/// Compact, reusable post-run report. It is intentionally separate from the
+/// confirmation dialog so failed and remaining items stay visible after a
+/// Trash attempt rather than being mistaken for successful cleanup.
+struct CleanupResultSummaryView: View {
+    let result: CleanupResult
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: result.previewOnly
+                      ? "eye.fill"
+                      : (result.failedCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"))
+                    .foregroundStyle(result.previewOnly ? AuroraPalette.cyan : (result.failedCount > 0 ? AuroraPalette.amber : AuroraPalette.success))
+                Text(result.previewOnly
+                     ? String(format: NSLocalizedString("cleanup.report.previewed", comment: ""), result.previewed.count, FileUtilities.formattedBytes(result.totalBytes))
+                     : String(format: NSLocalizedString("cleanup.report.moved", comment: ""), result.trashed.count, FileUtilities.formattedBytes(result.movedBytes)))
+                    .font(.callout.weight(.semibold))
+                Spacer()
+            }
+            Text(String(format: NSLocalizedString("cleanup.report.exact", comment: ""),
+                        result.selectedCount,
+                        result.processedCount,
+                        result.trashed.count,
+                        result.previewed.count,
+                        result.failedCount,
+                        result.notProcessed,
+                        FileUtilities.formattedBytes(result.remainingBytes)))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(.secondary)
+            if result.cancelled {
+                Label("cleanup.report.cancelled", systemImage: "pause.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(AuroraPalette.amber)
+            }
+            ForEach(Array(result.failures.prefix(4).enumerated()), id: \.offset) { _, failure in
+                Text("\(failure.path): \(failure.reason)")
+                    .font(.caption)
+                    .foregroundStyle(AuroraPalette.amber)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Confirmation dialog helper
 
 struct ConfirmationDialogConfig {

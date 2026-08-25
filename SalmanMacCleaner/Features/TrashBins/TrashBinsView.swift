@@ -124,7 +124,7 @@ struct TrashBinsView: View {
                 for entry in contents {
                     guard let values = try? entry.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey, .fileSizeKey, .fileAllocatedSizeKey]) else { continue }
                     let size = Int64(values.fileAllocatedSize ?? values.fileSize ?? 0)
-                    total += size
+                    total = CleanupAccounting.adding(total, size)
                     found.append(TrashEntry(
                         name: entry.lastPathComponent,
                         path: entry.path,

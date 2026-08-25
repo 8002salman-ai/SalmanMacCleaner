@@ -19,6 +19,7 @@ struct MyClutterView: View {
     @State private var selection: Set<UUID> = []
     @State private var showPicker = false
     @State private var showConfirmation = false
+    @State private var cleanupReport: CleanupResult?
 
     var body: some View {
         Group {
@@ -80,6 +81,10 @@ struct MyClutterView: View {
                     }
             }
 
+            if let cleanupReport {
+                CleanupResultSummaryView(result: cleanupReport)
+            }
+
             if items.isEmpty {
                 EmptyStateView(
                     systemImage: "shippingbox",
@@ -117,11 +122,13 @@ struct MyClutterView: View {
                 HStack {
                     Text(String(format: NSLocalizedString("results.selected", comment: ""), selection.count))
                     Spacer()
-                    Button("results.preview_cleanup") { showConfirmation = true }
-                        .buttonStyle(AuroraSecondaryButtonStyle())
-                    Button("results.clean_selected") { showConfirmation = true }
-                        .buttonStyle(AuroraPrimaryButtonStyle())
-                        .disabled(appState.settings.dryRun)
+                    if appState.settings.dryRun {
+                        Button("results.preview_cleanup") { showConfirmation = true }
+                            .buttonStyle(AuroraSecondaryButtonStyle())
+                    } else {
+                        Button("results.clean_selected") { showConfirmation = true }
+                            .buttonStyle(AuroraPrimaryButtonStyle())
+                    }
                 }
                 .padding(14)
                 .background(.ultraThinMaterial)
@@ -135,7 +142,7 @@ struct MyClutterView: View {
     }
 
     private var selectedBytes: Int64 {
-        items.filter { selection.contains($0.id) }.reduce(0) { $0 + $1.size }
+        CleanupAccounting.uniqueBytes(for: items.filter { selection.contains($0.id) })
     }
 
     private func binding(for id: UUID) -> Binding<Bool> {
@@ -154,6 +161,7 @@ struct MyClutterView: View {
         let root = url.path
         Task.detached(priority: .userInitiated) {
             var found: [ScannedItem] = []
+            var entriesVisited = 0
             if let device = VolumeDiscoveryService.deviceID(ofMountPoint: root),
                let enumerator = FileManager.default.enumerator(
                    at: url,
@@ -162,15 +170,24 @@ struct MyClutterView: View {
                    errorHandler: { _, _ in true }
                ) {
                 for case let entry as URL in enumerator {
+                    entriesVisited += 1
+                    guard entriesVisited <= 250_000, !Task.isCancelled else { break }
+                    if enumerator.level > 64 {
+                        enumerator.skipDescendants()
+                        continue
+                    }
                     guard let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey]) else { continue }
                     if values.isSymbolicLink == true { continue }
                     if values.isRegularFile == true {
                         let safe = PathSafety.validate(path: entry.path, root: root, expectedDevice: dev_t(device), purpose: .scan, allowSymlink: false)
                         guard case .success(let validated) = safe else { continue }
+                        let identity = Crypto.inode(of: validated.canonical)
                         found.append(ScannedItem(
                             path: validated.canonical,
                             size: Int64(values.fileSize ?? 0),
-                            modificationDate: (try? entry.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+                            modificationDate: (try? entry.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+                            device: identity.map { Int32(clamping: Int64($0.0)) } ?? 0,
+                            inode: identity.map { UInt64($0.1) } ?? 0
                         ))
                     }
                 }
@@ -185,7 +202,15 @@ struct MyClutterView: View {
 
     private func performCleanup() {
         let selected = items.filter { selection.contains($0.id) }
-        let cleanupItems = selected.map { CleanupItem(path: $0.path, size: $0.size, kind: "file") }
+        let cleanupItems = selected.map {
+            CleanupItem(
+                path: $0.path,
+                size: $0.size,
+                kind: "file",
+                device: $0.device,
+                inode: $0.inode
+            )
+        }
         guard let root = chosenFolder?.path, !cleanupItems.isEmpty else { return }
         let previewOnly = appState.settings.dryRun
         appState.beginActivity(.cleaning(detail: NSLocalizedString("clutter.cleaning", comment: "")))
@@ -201,24 +226,29 @@ struct MyClutterView: View {
                 isCancelled: { Task.isCancelled }
             )
             if Task.isCancelled { return }
+            cleanupReport = result
             appState.sessionStore.recordCleanup(CleanupHistoryRecord(
                 action: NSLocalizedString("history.action.clutter", comment: ""),
                 category: "myClutter",
-                itemCount: cleanupItems.count,
-                bytes: result.totalBytes,
+                itemCount: result.succeededCount,
+                bytes: previewOnly ? result.totalBytes : result.movedBytes,
                 previewOnly: previewOnly,
                 movedCount: result.trashed.count,
                 failedCount: result.failedCount,
                 root: root
             ))
-            appState.endActivity(message: String(
-                format: previewOnly
-                    ? NSLocalizedString("clutter.preview_done", comment: "")
-                    : NSLocalizedString("clutter.clean_done", comment: ""),
-                result.succeededCount
-            ))
-            scan(chosenFolder!)
-            selection = []
+            appState.endActivity(message: result.cancelled
+                ? NSLocalizedString("cleanup.report.cancelled", comment: "")
+                : String(
+                    format: previewOnly
+                        ? NSLocalizedString("clutter.preview_done", comment: "")
+                        : NSLocalizedString("clutter.clean_done", comment: ""),
+                    result.succeededCount
+                ))
+            if !previewOnly, let folder = chosenFolder {
+                scan(folder)
+                selection = []
+            }
         }
         withExtendedLifetime(task) {}
     }

@@ -31,12 +31,14 @@ Core/
 Docs/
 Engine/
   ApplicationInventoryService.swift
+  CleanupAccounting.swift
   CleanupExecutor.swift
   CleanupPlanBuilder.swift
   CleanupSafetyValidator.swift
   DeepScanCoordinator.swift
   DuplicatePipeline.swift
   FileInventoryScanner.swift
+  HealthCheckService.swift
   IgnoreListStore.swift
   IncrementalScanSupport.swift
   JunkClassifier.swift

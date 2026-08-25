@@ -86,6 +86,8 @@
 		DD000000000000000000000154 /* ScanProgressAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000153 /* ScanProgressAggregator.swift */; };
 		DD000000000000000000000156 /* TraversalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000155 /* TraversalPolicy.swift */; };
 		DD000000000000000000000158 /* VolumeDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000157 /* VolumeDiscoveryService.swift */; };
+		DD000000000000000000000221 /* HealthCheckService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000220 /* HealthCheckService.swift */; };
+		DD000000000000000000000223 /* CleanupAccounting.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000222 /* CleanupAccounting.swift */; };
 		DD000000000000000000000160 /* CleanupEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000159 /* CleanupEngineTests.swift */; };
 		DD000000000000000000000162 /* CleanupWorkflowRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */; };
 		DD000000000000000000000164 /* DeepScanRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000163 /* DeepScanRegressionTests.swift */; };
@@ -191,6 +193,8 @@
 		DD000000000000000000000153 /* ScanProgressAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProgressAggregator.swift; sourceTree = "<group>"; };
 		DD000000000000000000000155 /* TraversalPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraversalPolicy.swift; sourceTree = "<group>"; };
 		DD000000000000000000000157 /* VolumeDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeDiscoveryService.swift; sourceTree = "<group>"; };
+		DD000000000000000000000220 /* HealthCheckService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthCheckService.swift; sourceTree = "<group>"; };
+		DD000000000000000000000222 /* CleanupAccounting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupAccounting.swift; sourceTree = "<group>"; };
 		DD000000000000000000000159 /* CleanupEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupEngineTests.swift; sourceTree = "<group>"; };
 		DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupWorkflowRegressionTests.swift; sourceTree = "<group>"; };
 		DD000000000000000000000163 /* DeepScanRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanRegressionTests.swift; sourceTree = "<group>"; };
@@ -323,6 +327,8 @@
 				DD000000000000000000000153 /* ScanProgressAggregator.swift */,
 				DD000000000000000000000155 /* TraversalPolicy.swift */,
 				DD000000000000000000000157 /* VolumeDiscoveryService.swift */,
+				DD000000000000000000000220 /* HealthCheckService.swift */,
+				DD000000000000000000000222 /* CleanupAccounting.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -708,6 +714,8 @@
 				DD000000000000000000000154 /* ScanProgressAggregator.swift in Sources */,
 				DD000000000000000000000156 /* TraversalPolicy.swift in Sources */,
 				DD000000000000000000000158 /* VolumeDiscoveryService.swift in Sources */,
+				DD000000000000000000000221 /* HealthCheckService.swift in Sources */,
+				DD000000000000000000000223 /* CleanupAccounting.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -862,7 +870,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -874,7 +882,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.3;
+				MARKETING_VERSION = 1.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleaner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -891,7 +899,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -903,7 +911,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.3;
+				MARKETING_VERSION = 1.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleaner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -917,11 +925,11 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.3;
+				MARKETING_VERSION = 1.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleanerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -936,11 +944,11 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.3;
+				MARKETING_VERSION = 1.1.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleanerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

@@ -21,6 +21,7 @@ final class LargeFilesViewModel: ObservableObject {
     @Published var sortOrder: LargeFilesSortOrder = .sizeDescending
     @Published var selection: Set<UUID> = []
     @Published var showConfirmation = false
+    @Published var cleanupReport: CleanupResult?
     @Published var folderPickerPresented = false
 
     private var coordinator: ScanCoordinator?
@@ -45,7 +46,7 @@ final class LargeFilesViewModel: ObservableObject {
 
     var selectedBytes: Int64 {
         guard let items = result?.items else { return 0 }
-        return items.filter { selection.contains($0.id) }.reduce(0) { $0 + $1.size }
+        return CleanupAccounting.uniqueBytes(for: items.filter { selection.contains($0.id) })
     }
 
     func addRoot(_ url: URL?) {
@@ -73,6 +74,7 @@ final class LargeFilesViewModel: ObservableObject {
         progress = 0
         selection = []
         result = nil
+        cleanupReport = nil
 
         let rootsSnapshot = roots
         let threshold = Int64(settings.largeFileThresholdMB * 1_048_576)
@@ -128,8 +130,19 @@ final class LargeFilesViewModel: ObservableObject {
         guard let result, !selection.isEmpty else { return }
 
         let selected = result.items.filter { selection.contains($0.id) }
-        let items = selected.map { CleanupItem(path: $0.path, size: $0.size, kind: $0.isDirectory ? "folder" : "file") }
-        let root = result.roots.first ?? PathSafety.userHome.path
+        let items = selected.map {
+            CleanupItem(
+                path: $0.path,
+                size: $0.size,
+                kind: $0.isDirectory ? "folder" : "file",
+                device: $0.device,
+                inode: $0.inode
+            )
+        }
+        // Preserve multiple explicit folder boundaries while giving the
+        // engine one safe lexical containment root.
+        let root = PathSafety.userHome.path
+        let allowedRoots = result.roots
         let previewOnly = settings.dryRun
 
         activity.beginActivity(.cleaning(detail: NSLocalizedString("largefiles.cleaning", comment: "")))
@@ -138,6 +151,7 @@ final class LargeFilesViewModel: ObservableObject {
                 items: items,
                 root: root,
                 previewOnly: previewOnly,
+                allowedRoots: allowedRoots,
                 progress: { fraction, detail in
                     Task { @MainActor in activity.updateProgress(fraction, detail: detail) }
                 },
@@ -145,23 +159,44 @@ final class LargeFilesViewModel: ObservableObject {
             )
 
             if Task.isCancelled { return }
+            self.cleanupReport = outcome
             let entry = HistoryEntry(
                 action: NSLocalizedString("history.action.large_files", comment: ""),
                 category: "largeFiles",
-                itemCount: items.count,
-                bytes: outcome.totalBytes,
+                itemCount: outcome.succeededCount,
+                bytes: previewOnly ? outcome.previewedBytes : outcome.movedBytes,
                 dryRun: previewOnly,
                 root: root
             )
             history.record(entry)
-            activity.endActivity(message: String(
-                format: previewOnly
-                    ? NSLocalizedString("largefiles.preview_done", comment: "")
-                    : NSLocalizedString("largefiles.clean_done", comment: ""),
-                outcome.succeededCount
+            activity.sessionStore.recordCleanup(CleanupHistoryRecord(
+                action: entry.action,
+                category: entry.category,
+                itemCount: outcome.succeededCount,
+                bytes: previewOnly ? outcome.previewedBytes : outcome.movedBytes,
+                previewOnly: previewOnly,
+                movedCount: outcome.trashed.count,
+                failedCount: outcome.failedCount,
+                root: root
             ))
-            self.result = nil
-            self.selection = []
+            activity.endActivity(message: outcome.cancelled
+                ? NSLocalizedString("cleanup.report.cancelled", comment: "")
+                : String(
+                    format: previewOnly
+                        ? NSLocalizedString("largefiles.preview_done", comment: "")
+                        : NSLocalizedString("largefiles.clean_done", comment: ""),
+                    outcome.succeededCount
+                ))
+            if !previewOnly {
+                let movedPaths = Set(outcome.trashed.map(\.path))
+                let movedIDs = Set(selected.filter { movedPaths.contains($0.path) }.map(\.id))
+                if var updated = self.result {
+                    updated.items.removeAll { movedPaths.contains($0.path) }
+                    updated.totalBytes = CleanupAccounting.uniqueBytes(for: updated.items)
+                    self.result = updated
+                }
+                self.selection.subtract(movedIDs)
+            }
         }
         withExtendedLifetime(task) {}
     }

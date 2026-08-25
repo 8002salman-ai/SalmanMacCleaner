@@ -421,7 +421,7 @@ public actor ScanIndexStore {
     public func duplicateCandidates(scanID: Int64, limit: Int) -> [ScannedItem] {
         guard let statement = try? db.prepare(
             """
-            SELECT path, logical_size, allocated_size, modified FROM records
+            SELECT path, logical_size, allocated_size, modified, device, inode FROM records
             WHERE scan_id=? AND is_directory=0 AND logical_size>=1024
             ORDER BY logical_size DESC LIMIT ?;
             """
@@ -434,7 +434,11 @@ public actor ScanIndexStore {
             let logical = statement.columnInt(1)
             let modifiedRaw = statement.columnDouble(3)
             let modified = modifiedRaw > 0 ? Date(timeIntervalSince1970: modifiedRaw) : nil
-            results.append(ScannedItem(path: path, size: logical, modificationDate: modified))
+            // Keep the filesystem identity with the candidate so later
+            // accounting can collapse hard links without another scan.
+            let device = Int32(clamping: statement.columnInt(4))
+            let inode = UInt64(max(statement.columnInt(5), 0))
+            results.append(ScannedItem(path: path, size: logical, modificationDate: modified, device: device, inode: inode))
         }
         return results
     }
@@ -442,7 +446,8 @@ public actor ScanIndexStore {
     /// Classified (non-protected or all) items for the results workspace.
     public func classifiedItems(scanID: Int64, safety: SafetyLevel?, category: String?, limit: Int) -> [ClassifiedRecord] {
         var sql = """
-            SELECT path, name, logical_size, allocated_size, modified, classification, safety, reason
+            SELECT path, name, logical_size, allocated_size, modified, classification, safety, reason,
+                   is_directory, device, inode, owner_uid, is_symlink
             FROM records WHERE scan_id=?
             """
         if let safety {
@@ -477,7 +482,12 @@ public actor ScanIndexStore {
                 modified: modifiedRaw > 0 ? Date(timeIntervalSince1970: modifiedRaw) : nil,
                 category: statement.columnText(5),
                 safety: statement.columnText(6),
-                reason: statement.columnText(7)
+                reason: statement.columnText(7),
+                isDirectory: statement.columnInt(8) != 0,
+                device: Int32(clamping: statement.columnInt(9)),
+                inode: UInt64(max(statement.columnInt(10), 0)),
+                ownerUID: UInt32(clamping: statement.columnInt(11)),
+                isSymlink: statement.columnInt(12) != 0
             ))
         }
         return results
@@ -506,8 +516,12 @@ public actor ScanIndexStore {
             _ = statement?.bindText(path, at: 2)
             _ = try? statement?.step()
 
-            let prefixPattern = path.hasSuffix("/") ? path + "%" : path + "/%"
-            let descStatement = try? db.prepare("DELETE FROM records WHERE scan_id=? AND path LIKE ?;")
+            let escapedPath = path
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "%", with: "\\%")
+                .replacingOccurrences(of: "_", with: "\\_")
+            let prefixPattern = path.hasSuffix("/") ? escapedPath + "%" : escapedPath + "/%"
+            let descStatement = try? db.prepare("DELETE FROM records WHERE scan_id=? AND path LIKE ? ESCAPE char(92);")
             _ = descStatement?.bindInt(scanID, at: 1)
             _ = descStatement?.bindText(prefixPattern, at: 2)
             _ = try? descStatement?.step()
@@ -522,21 +536,26 @@ public actor ScanIndexStore {
         var reviewBytes: Int64 = 0
         var protectedBytes: Int64 = 0
 
-        guard let statement = try? db.prepare("SELECT safety, allocated_size FROM records WHERE scan_id=?;") else {
+        guard let statement = try? db.prepare("SELECT safety, allocated_size, device, inode FROM records WHERE scan_id=?;") else {
             return (0, 0, 0, 0, 0)
         }
         _ = statement.bindInt(scanID, at: 1)
+        var physicalIdentities = Set<String>()
         while (try? statement.step()) == true {
             itemsScanned += 1
             let safety = statement.columnText(0)
             let size = statement.columnInt(1)
-            bytesIndexed += size
+            let device = statement.columnInt(2)
+            let inode = statement.columnInt(3)
+            let identity = inode == 0 ? "row:\(itemsScanned)" : "inode:\(device):\(inode)"
+            guard physicalIdentities.insert(identity).inserted else { continue }
+            bytesIndexed = CleanupAccounting.adding(bytesIndexed, size)
             if safety == SafetyLevel.safe.rawValue {
-                safeBytes += size
+                safeBytes = CleanupAccounting.adding(safeBytes, size)
             } else if safety == SafetyLevel.review.rawValue {
-                reviewBytes += size
+                reviewBytes = CleanupAccounting.adding(reviewBytes, size)
             } else if safety == SafetyLevel.protected.rawValue {
-                protectedBytes += size
+                protectedBytes = CleanupAccounting.adding(protectedBytes, size)
             }
         }
         return (itemsScanned, bytesIndexed, safeBytes, reviewBytes, protectedBytes)
@@ -591,6 +610,11 @@ public struct ClassifiedRecord: Identifiable, Equatable {
     public var category: String
     public var safety: String
     public var reason: String
+    public var isDirectory: Bool
+    public var device: Int32
+    public var inode: UInt64
+    public var ownerUID: UInt32
+    public var isSymlink: Bool
 
     public init(path: String,
                 name: String,
@@ -599,7 +623,12 @@ public struct ClassifiedRecord: Identifiable, Equatable {
                 modified: Date?,
                 category: String,
                 safety: String,
-                reason: String) {
+                reason: String,
+                isDirectory: Bool = false,
+                device: Int32 = 0,
+                inode: UInt64 = 0,
+                ownerUID: UInt32 = 0,
+                isSymlink: Bool = false) {
         self.path = path
         self.name = name
         self.logicalSize = logicalSize
@@ -608,6 +637,11 @@ public struct ClassifiedRecord: Identifiable, Equatable {
         self.category = category
         self.safety = safety
         self.reason = reason
+        self.isDirectory = isDirectory
+        self.device = device
+        self.inode = inode
+        self.ownerUID = ownerUID
+        self.isSymlink = isSymlink
     }
 
     public var safetyLevel: SafetyLevel {

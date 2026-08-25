@@ -77,7 +77,8 @@ public enum MetadataCollector {
             return Int64(allocated)
         }
         let blocks = Int64(stat.st_blocks)
-        return blocks * 512
+        let (bytes, overflowed) = blocks.multipliedReportingOverflow(by: 512)
+        return overflowed ? Int64.max : max(bytes, 0)
     }
 }
 

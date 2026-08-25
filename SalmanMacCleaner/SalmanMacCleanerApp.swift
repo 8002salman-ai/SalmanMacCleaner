@@ -53,7 +53,8 @@ struct SalmanMacCleanerApp: App {
             }
             CommandGroup(replacing: .help) {
                 Button(NSLocalizedString("menu.readme", comment: "")) {
-                    NSWorkspace.shared.open(URL(string: "https://github.com/8002salman-ai/SalmanMacCleaner")!)
+                    guard let url = URL(string: "https://github.com/8002salman-ai/SalmanMacCleaner") else { return }
+                    NSWorkspace.shared.open(url)
                 }
             }
         }

@@ -9,6 +9,7 @@
 
 import Foundation
 import CommonCrypto
+import Darwin
 
 /// Incremental SHA-256 hasher built on CommonCrypto. `feed` can be called any
 /// number of times; `finalize` produces the lowercase hex digest.
@@ -69,7 +70,7 @@ public enum Crypto {
         isCancelled: () -> Bool = { false }
     ) -> Result<String, HashError> {
         var statBuffer = stat()
-        guard stat(path, &statBuffer) == 0 else {
+        guard lstat(path, &statBuffer) == 0 else {
             return .failure(.openFailed(path))
         }
         guard (statBuffer.st_mode & S_IFMT) == S_IFREG else {
@@ -79,28 +80,57 @@ public enum Crypto {
             return .failure(.unreadable(path))
         }
 
-        guard let input = InputStream(fileAtPath: path) else {
+        // O_NOFOLLOW closes the enumeration-to-hash symlink race: a changed
+        // leaf is rejected instead of reading an arbitrary target.
+        let descriptor = path.withCString { open($0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC) }
+        guard descriptor >= 0 else {
             return .failure(.openFailed(path))
         }
-        input.open()
-        defer { input.close() }
+        let input = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
 
         let hasher = StreamingSHA256()
-        var buffer = [UInt8](repeating: 0, count: chunkSize)
-        while true {
-            if isCancelled() {
-                return .failure(.cancelled)
+        do {
+            while true {
+                if isCancelled() {
+                    return .failure(.cancelled)
+                }
+                guard let data = try input.read(upToCount: chunkSize), !data.isEmpty else {
+                    break
+                }
+                hasher.feed(data)
             }
-            let bytesRead = input.read(&buffer, maxLength: buffer.count)
-            if bytesRead < 0 {
-                return .failure(.unreadable(path))
-            }
-            if bytesRead == 0 {
-                break
-            }
-            hasher.feed(Data(bytes: buffer, count: bytesRead))
+        } catch {
+            return .failure(.unreadable(path))
         }
         return .success(hasher.finalize())
+    }
+
+    /// Bounded first/last sample used only as a hash-elimination stage. It
+    /// uses the same no-symlink open policy as the full digest reader and is
+    /// never treated as proof of equality.
+    public static func sampleHash(ofFileAt path: String, size: Int64, sampleBytes: Int = 8 * 1024) -> String? {
+        guard sampleBytes > 0 else { return nil }
+        var statBuffer = stat()
+        guard lstat(path, &statBuffer) == 0,
+              (statBuffer.st_mode & S_IFMT) == S_IFREG else { return nil }
+        let descriptor = path.withCString { open($0, O_RDONLY | O_NOFOLLOW | O_CLOEXEC) }
+        guard descriptor >= 0 else { return nil }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        let hasher = StreamingSHA256()
+        do {
+            if let head = try handle.read(upToCount: sampleBytes), !head.isEmpty {
+                hasher.feed(head)
+            }
+            if size > Int64(sampleBytes) {
+                try handle.seek(toOffset: UInt64(max(size - Int64(sampleBytes), 0)))
+                if let tail = try handle.read(upToCount: sampleBytes), !tail.isEmpty {
+                    hasher.feed(tail)
+                }
+            }
+            return hasher.finalize()
+        } catch {
+            return nil
+        }
     }
 
     /// Convenience wrapper returning the digest or nil (used by tests).
@@ -115,21 +145,30 @@ public enum Crypto {
     /// duplicate pipeline. Returns the file size or nil when unavailable.
     public static func fileSize(of path: String) -> Int64? {
         var statBuffer = stat()
-        guard stat(path, &statBuffer) == 0 else { return nil }
+        guard lstat(path, &statBuffer) == 0 else { return nil }
         return statBuffer.st_size
     }
 
     /// The device id (st_dev) — used to build inode+device identity pairs.
     public static func deviceID(of path: String) -> dev_t? {
         var statBuffer = stat()
-        guard stat(path, &statBuffer) == 0 else { return nil }
+        guard lstat(path, &statBuffer) == 0 else { return nil }
         return statBuffer.st_dev
     }
 
     /// The file-system identity (device, inode) used to detect hard links.
     public static func inode(of path: String) -> (dev_t, ino_t)? {
         var statBuffer = stat()
-        guard stat(path, &statBuffer) == 0 else { return nil }
+        guard lstat(path, &statBuffer) == 0 else { return nil }
         return (statBuffer.st_dev, statBuffer.st_ino)
+    }
+
+    /// Number of directory entries pointing at a regular file. A selected
+    /// hard-linked file is not physically reclaimable by moving one name, so
+    /// cleanup revalidation can refuse it conservatively.
+    public static func linkCount(of path: String) -> UInt64? {
+        var statBuffer = stat()
+        guard lstat(path, &statBuffer) == 0 else { return nil }
+        return UInt64(statBuffer.st_nlink)
     }
 }

@@ -59,6 +59,9 @@ struct LargeFilesView: View {
             if let error = viewModel.errorMessage {
                 PermissionBannerView(message: error, systemImage: "exclamationmark.triangle.fill")
             }
+            if let cleanupReport = viewModel.cleanupReport {
+                CleanupResultSummaryView(result: cleanupReport)
+            }
 
             if let result = viewModel.result {
                 if result.isEmpty {
@@ -86,20 +89,21 @@ struct LargeFilesView: View {
         .toolbar {
             ToolbarItemGroup {
                 if !viewModel.selection.isEmpty {
-                    Button {
-                        viewModel.showConfirmation = true
-                    } label: {
-                        Label("common.preview_cleanup", systemImage: "eye")
+                    if appState.settings.dryRun {
+                        Button {
+                            viewModel.showConfirmation = true
+                        } label: {
+                            Label("common.preview_cleanup", systemImage: "eye")
+                        }
+                        .help("common.preview_cleanup.help")
+                    } else {
+                        Button(role: .destructive) {
+                            viewModel.showConfirmation = true
+                        } label: {
+                            Label("common.trash_selected", systemImage: "trash")
+                        }
+                        .help("common.trash_selected.help")
                     }
-                    .help("common.preview_cleanup.help")
-
-                    Button(role: .destructive) {
-                        viewModel.showConfirmation = true
-                    } label: {
-                        Label("common.trash_selected", systemImage: "trash")
-                    }
-                    .disabled(appState.settings.dryRun)
-                    .help("common.trash_selected.help")
                 }
             }
         }

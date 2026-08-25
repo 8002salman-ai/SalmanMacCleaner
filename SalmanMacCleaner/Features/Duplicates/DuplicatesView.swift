@@ -67,11 +67,19 @@ struct DuplicatesView: View {
             if !viewModel.groups.isEmpty {
                 resultsView()
             } else if !viewModel.isScanning && viewModel.hasRun && viewModel.roots.isEmpty == false {
-                EmptyStateView(
-                    systemImage: "sparkles",
-                    title: "duplicates.empty.title",
-                    message: "duplicates.empty.message"
-                )
+                VStack(spacing: 12) {
+                    if let coverage = viewModel.coverageSummary,
+                       viewModel.coverageReport?.isPartial == true {
+                        PermissionBannerView(message: coverage, systemImage: "exclamationmark.triangle.fill")
+                    }
+                    EmptyStateView(
+                        systemImage: "sparkles",
+                        title: "duplicates.empty.title",
+                        message: viewModel.coverageReport?.isPartial == true
+                            ? "duplicates.coverage.partial_empty"
+                            : "duplicates.empty.message"
+                    )
+                }
             } else if viewModel.roots.isEmpty {
                 EmptyStateView(
                     systemImage: "doc.on.doc",
@@ -88,17 +96,19 @@ struct DuplicatesView: View {
         .toolbar {
             ToolbarItemGroup {
                 if !viewModel.selection.isEmpty {
-                    Button {
-                        viewModel.showConfirmation = true
-                    } label: {
-                        Label("common.preview_cleanup", systemImage: "eye")
+                    if appState.settings.dryRun {
+                        Button {
+                            viewModel.showConfirmation = true
+                        } label: {
+                            Label("common.preview_cleanup", systemImage: "eye")
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            viewModel.showConfirmation = true
+                        } label: {
+                            Label("common.trash_selected", systemImage: "trash")
+                        }
                     }
-                    Button(role: .destructive) {
-                        viewModel.showConfirmation = true
-                    } label: {
-                        Label("common.trash_selected", systemImage: "trash")
-                    }
-                    .disabled(appState.settings.dryRun)
                 }
             }
         }
@@ -123,6 +133,9 @@ struct DuplicatesView: View {
     @ViewBuilder
     private func resultsView() -> some View {
         VStack(alignment: .leading, spacing: 8) {
+            if let cleanupReport = viewModel.cleanupReport {
+                CleanupResultSummaryView(result: cleanupReport)
+            }
             HStack {
                 Text(String(format: NSLocalizedString("duplicates.results.summary", comment: ""),
                             viewModel.groups.count, FileUtilities.formattedBytes(viewModel.totalReclaimable)))
@@ -135,6 +148,13 @@ struct DuplicatesView: View {
                         .foregroundStyle(.secondary)
                         .help(Text(NSLocalizedString("duplicates.hardlink_note.help", comment: "")))
                 }
+            }
+
+            if let coverage = viewModel.coverageSummary {
+                PermissionBannerView(
+                    message: coverage,
+                    systemImage: viewModel.coverageReport?.isPartial == true ? "exclamationmark.triangle.fill" : "checkmark.shield.fill"
+                )
             }
 
             SelectionSummaryBar(

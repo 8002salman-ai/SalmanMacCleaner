@@ -15,19 +15,27 @@ public struct ScannedItem: Identifiable, Equatable, Hashable {
     public var isDirectory: Bool
     public var modificationDate: Date?
     public var detail: String?
+    /// Optional filesystem identity captured by a scanner. Zero means the
+    /// scanner could not safely obtain an inode and path identity is used.
+    public var device: Int32
+    public var inode: UInt64
 
     public init(id: UUID = UUID(),
                 path: String,
                 size: Int64,
                 isDirectory: Bool = false,
                 modificationDate: Date? = nil,
-                detail: String? = nil) {
+                detail: String? = nil,
+                device: Int32 = 0,
+                inode: UInt64 = 0) {
         self.id = id
         self.path = path
         self.size = size
         self.isDirectory = isDirectory
         self.modificationDate = modificationDate
         self.detail = detail
+        self.device = device
+        self.inode = inode
     }
 
     public var name: String { (path as NSString).lastPathComponent }
@@ -86,18 +94,29 @@ public struct DuplicateGroup: Identifiable, Equatable {
     /// Bytes that could be reclaimed by removing all but one copy.
     public var reclaimableBytes: Int64 {
         guard files.count > 1 else { return 0 }
-        return size * Int64(files.count - 1)
+        let (value, overflowed) = max(size, 0).multipliedReportingOverflow(by: Int64(files.count - 1))
+        return overflowed ? Int64.max : value
     }
 
-    /// The files the engine may offer for selection (all but one "keeper").
-    public var removableFiles: [ScannedItem] {
-        guard files.count > 1 else { return [] }
-        return Array(files.dropFirst())
-    }
-
-    /// Kept file (shortest path wins; deterministic).
+    /// Kept file (shortest path wins; lexical order breaks ties).
     public var keeper: ScannedItem? {
-        files.min { $0.path.count < $1.path.count }
+        if containsHardLinks {
+            // DuplicateFinder orders the representative of the multi-link
+            // identity first. Keeping it ensures the cleanup target is the
+            // distinct inode, not one alias whose data would remain reachable.
+            return files.first
+        }
+        return files.min {
+            if $0.path.count == $1.path.count { return $0.path < $1.path }
+            return $0.path.count < $1.path.count
+        }
+    }
+
+    /// The files the engine may offer for selection (all but the deterministic
+    /// keeper, never simply the first hash result).
+    public var removableFiles: [ScannedItem] {
+        guard let keeper else { return [] }
+        return files.filter { $0.id != keeper.id }
     }
 }
 
@@ -110,6 +129,10 @@ public struct DeveloperCacheEntry: Identifiable, Equatable {
     public let size: Int64
     public let modified: Date?
     public let isDirectory: Bool
+    public let confidence: SafetyLevel
+    public let reason: String
+    public let device: Int32
+    public let inode: UInt64
 
     public init(id: UUID = UUID(),
                 category: String,
@@ -117,7 +140,11 @@ public struct DeveloperCacheEntry: Identifiable, Equatable {
                 path: String,
                 size: Int64,
                 modified: Date? = nil,
-                isDirectory: Bool = true) {
+                isDirectory: Bool = true,
+                confidence: SafetyLevel = .review,
+                reason: String = "",
+                device: Int32 = 0,
+                inode: UInt64 = 0) {
         self.id = id
         self.category = category
         self.name = name
@@ -125,6 +152,10 @@ public struct DeveloperCacheEntry: Identifiable, Equatable {
         self.size = size
         self.modified = modified
         self.isDirectory = isDirectory
+        self.confidence = confidence
+        self.reason = reason
+        self.device = device
+        self.inode = inode
     }
 }
 

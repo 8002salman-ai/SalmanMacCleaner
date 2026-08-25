@@ -5,6 +5,16 @@ All notable changes to Salman Mac Cleaner are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-08-26
+
+### Fixed
+
+- Added a read-only One-Click Health Check with measured storage, Trash, cache, application, background-item and permission factors, live aggregate progress, cancellation, coverage warnings and links into the detailed modules.
+- Hardened Trash-only cleanup reconciliation: explicit category/root allowlists, canonical and ownership revalidation, symlink and hard-link safety, exact selected/moved/failed/remaining accounting, and preservation of failed or remaining rows after a run.
+- Completed bounded, cancellable scanner safeguards and honest partial/truncated reporting for Space Lens, developer caches, duplicates, large-file review and health measurements.
+- Improved application and leftover inventories with bundle metadata, exact bundle-ID evidence, publisher/signing/runtime information, protected Apple/current/running/ambiguous entries, and safer support-file handling.
+- Polished compact SwiftUI module controls and release-status copy so preview actions, Trash actions, version/build metadata and updater limitations are accurately labelled.
+
 ## [1.1.3] - 2026-08-26
 
 ### Fixed

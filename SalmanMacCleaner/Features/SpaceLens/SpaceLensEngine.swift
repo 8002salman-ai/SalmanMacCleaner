@@ -21,6 +21,9 @@ public struct SpaceLensNode: Identifiable, Equatable {
     public var isAggregate: Bool
     public var isSystemProtected: Bool
     public var isDenied: Bool
+    /// The node was measured to a configured depth but not recursively
+    /// expanded. It is still measured, never an unscanned zero placeholder.
+    public var isTruncated: Bool
 
     public init(id: UUID = UUID(),
                 name: String,
@@ -31,7 +34,8 @@ public struct SpaceLensNode: Identifiable, Equatable {
                 children: [SpaceLensNode] = [],
                 isAggregate: Bool = false,
                 isSystemProtected: Bool = false,
-                isDenied: Bool = false) {
+                isDenied: Bool = false,
+                isTruncated: Bool = false) {
         self.id = id
         self.name = name
         self.path = path
@@ -42,14 +46,15 @@ public struct SpaceLensNode: Identifiable, Equatable {
         self.isAggregate = isAggregate
         self.isSystemProtected = isSystemProtected
         self.isDenied = isDenied
+        self.isTruncated = isTruncated
     }
 
     public var totalBytes: Int64 {
-        allocatedBytes + children.reduce(Int64(0)) { $0 + $1.totalBytes }
+        children.reduce(max(allocatedBytes, 0)) { CleanupAccounting.adding($0, $1.totalBytes) }
     }
 
     public var totalFiles: Int {
-        fileCount + children.reduce(0) { $0 + $1.totalFiles }
+        children.reduce(max(fileCount, 0)) { $0 > Int.max - $1.totalFiles ? Int.max : $0 + $1.totalFiles }
     }
 }
 
@@ -96,22 +101,35 @@ public final class SpaceLensCache: @unchecked Sendable {
     private let lock = NSLock()
     private var cache: [String: SpaceLensNode] = [:]
 
-    public func node(for path: String) -> SpaceLensNode? {
+    public func node(for path: String,
+                     includeHidden: Bool = false,
+                     includePackageContents: Bool = false) -> SpaceLensNode? {
         lock.lock()
         defer { lock.unlock() }
-        return cache[path]
+        return cache[key(path: path, includeHidden: includeHidden, includePackageContents: includePackageContents)]
     }
 
-    public func setNode(_ node: SpaceLensNode, for path: String) {
+    public func setNode(_ node: SpaceLensNode,
+                        for path: String,
+                        includeHidden: Bool = false,
+                        includePackageContents: Bool = false) {
         lock.lock()
         defer { lock.unlock() }
-        cache[path] = node
+        cache[key(path: path, includeHidden: includeHidden, includePackageContents: includePackageContents)] = node
     }
 
     public func invalidate(path: String) {
         lock.lock()
         defer { lock.unlock() }
-        cache.removeValue(forKey: path)
+        cache = cache.filter { !$0.key.hasPrefix(Self.pathPrefix(path)) }
+    }
+
+    private func key(path: String, includeHidden: Bool, includePackageContents: Bool) -> String {
+        Self.pathPrefix(path) + "|hidden=\(includeHidden ? 1 : 0)|packages=\(includePackageContents ? 1 : 0)"
+    }
+
+    private static func pathPrefix(_ path: String) -> String {
+        URL(fileURLWithPath: path).standardizedFileURL.path + "|"
     }
 
     public func invalidateAll() {
@@ -129,6 +147,10 @@ public enum SpaceLensEngine {
         var filesScanned = 0
         var bytesIndexed: Int64 = 0
         var inaccessibleCount = 0
+        var truncatedCount = 0
+        var directoriesVisited = 0
+        var seenPhysicalFiles = Set<String>()
+        var seenDirectories = Set<String>()
     }
 
     /// Maximum children kept per level before "Other" aggregation.
@@ -136,8 +158,9 @@ public enum SpaceLensEngine {
 
     /// Check if a path is system-protected.
     public static func isSystemPath(_ path: String) -> Bool {
-        path.hasPrefix("/System") || path.hasPrefix("/usr") || path.hasPrefix("/bin")
-            || path.hasPrefix("/sbin") || path.hasPrefix("/private/var")
+        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+        let protectedRoots = ["/System", "/usr", "/bin", "/sbin", "/private/var"]
+        return protectedRoots.contains(where: { standardized == $0 || standardized.hasPrefix($0 + "/") })
     }
 
     /// Build a storage tree for `root`. Depth is bounded; hidden files and
@@ -152,6 +175,19 @@ public enum SpaceLensEngine {
     ) -> (node: SpaceLensNode, state: SpaceLensRootState) {
         let startTime = Date()
         let metrics = ScanMetrics()
+        let rootPath = root.standardizedFileURL.path
+
+        guard FileManager.default.fileExists(atPath: rootPath),
+              PathSafety.kind(of: rootPath) == .directory else {
+            let denied = SpaceLensNode(
+                name: root.lastPathComponent.isEmpty ? rootPath : root.lastPathComponent,
+                path: rootPath,
+                allocatedBytes: 0,
+                isDirectory: true,
+                isDenied: true
+            )
+            return (denied, .denied(reason: NSLocalizedString("space_lens.error.denied", comment: "")))
+        }
 
         func reportProgress(currentPath: String) {
             let elapsed = Date().timeIntervalSince(startTime)
@@ -165,7 +201,7 @@ public enum SpaceLensEngine {
         }
 
         let node = measureDirectory(
-            url: root,
+            url: URL(fileURLWithPath: rootPath, isDirectory: true),
             depth: 0,
             maxDepth: maxDepth,
             includeHidden: includeHidden,
@@ -176,15 +212,24 @@ public enum SpaceLensEngine {
         )
 
         let state: SpaceLensRootState
-        if node.isDenied && node.totalBytes == 0 {
+        if isCancelled() {
+            state = .partial(deniedPaths: metrics.inaccessibleCount, errors: max(metrics.truncatedCount, 1))
+        } else if node.isDenied && node.totalBytes == 0 {
             state = .denied(reason: NSLocalizedString("space_lens.error.denied", comment: ""))
-        } else if metrics.inaccessibleCount > 0 {
-            state = .partial(deniedPaths: metrics.inaccessibleCount, errors: 0)
+        } else if metrics.inaccessibleCount > 0 || metrics.truncatedCount > 0 {
+            state = .partial(deniedPaths: metrics.inaccessibleCount, errors: metrics.truncatedCount)
         } else {
             state = .measured(bytes: node.totalBytes, fileCount: node.totalFiles)
         }
 
-        SpaceLensCache.shared.setNode(node, for: root.standardizedFileURL.path)
+        if !isCancelled() {
+            SpaceLensCache.shared.setNode(
+                node,
+                for: rootPath,
+                includeHidden: includeHidden,
+                includePackageContents: includePackageContents
+            )
+        }
         return (node, state)
     }
 
@@ -200,6 +245,36 @@ public enum SpaceLensEngine {
     ) -> SpaceLensNode {
         let path = url.standardizedFileURL.path
         let isSystem = isSystemPath(path)
+        metrics.directoriesVisited += 1
+        guard metrics.directoriesVisited <= 100_000 else {
+            metrics.truncatedCount += 1
+            return SpaceLensNode(
+                name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
+                path: path,
+                allocatedBytes: 0,
+                isDirectory: true,
+                isSystemProtected: isSystem,
+                isTruncated: true
+            )
+        }
+
+        if let identity = Crypto.inode(of: path) {
+            let key = "\(identity.0):\(identity.1)"
+            guard metrics.seenDirectories.insert(key).inserted else {
+                metrics.truncatedCount += 1
+                // A repeated directory identity is a cycle/alias. It is not
+                // an unknown zero-sized scan result; it was intentionally
+                // skipped to avoid counting the same subtree twice.
+                return SpaceLensNode(
+                    name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
+                    path: path,
+                    allocatedBytes: 0,
+                    isDirectory: true,
+                    isSystemProtected: isSystem,
+                    isTruncated: true
+                )
+            }
+        }
 
         if isCancelled() {
             return SpaceLensNode(
@@ -218,13 +293,14 @@ public enum SpaceLensEngine {
         ]
 
         guard depth < maxDepth else {
-            return SpaceLensNode(
-                name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
-                path: path,
-                allocatedBytes: 0,
-                fileCount: 0,
-                isDirectory: true,
-                isSystemProtected: isSystem
+            metrics.truncatedCount += 1
+            return measureShallowDirectory(
+                url: url,
+                includeHidden: includeHidden,
+                metrics: metrics,
+                isSystemProtected: isSystem,
+                reportProgress: reportProgress,
+                isCancelled: isCancelled
             )
         }
 
@@ -254,7 +330,11 @@ public enum SpaceLensEngine {
         var aggregateFiles = 0
         var aggregateChildren: [SpaceLensNode] = []
 
-        for entry in entries {
+        for (entryIndex, entry) in entries.enumerated() {
+            if entryIndex >= 10_000 {
+                metrics.truncatedCount += 1
+                break
+            }
             if isCancelled() { break }
             guard let values = try? entry.resourceValues(forKeys: Set(keys)) else {
                 metrics.inaccessibleCount += 1
@@ -266,16 +346,33 @@ public enum SpaceLensEngine {
             if !includeHidden && (values.isHidden ?? name.hasPrefix(".")) { continue }
 
             let entryPath = entry.standardizedFileURL.path
-            let entryIsSystem = isSystemPath(entryPath)
 
             if values.isDirectory == true {
                 let isPackage = values.isPackage ?? false
                 if isPackage && !includePackageContents {
-                    let size = Int64(values.fileAllocatedSize ?? values.fileSize ?? 0)
-                    ownBytes += size
-                    ownFiles += 1
-                    metrics.filesScanned += 1
-                    metrics.bytesIndexed += size
+                    // Package metadata is not the package's disk usage. Measure
+                    // its contents through the same bounded, link-safe walker,
+                    // then present it as a collapsed node so the toggle only
+                    // controls presentation, never the reported bytes.
+                    let truncationsBefore = metrics.truncatedCount
+                    let measured = measureDirectory(
+                        url: entry,
+                        depth: depth + 1,
+                        maxDepth: maxDepth,
+                        includeHidden: includeHidden,
+                        includePackageContents: true,
+                        metrics: metrics,
+                        reportProgress: reportProgress,
+                        isCancelled: isCancelled
+                    )
+                    childNodes.append(SpaceLensNode(
+                        name: name,
+                        path: entryPath,
+                        allocatedBytes: measured.totalBytes,
+                        fileCount: measured.totalFiles,
+                        isDirectory: true,
+                        isTruncated: metrics.truncatedCount > truncationsBefore
+                    ))
                     continue
                 }
                 let child = measureDirectory(
@@ -291,10 +388,14 @@ public enum SpaceLensEngine {
                 childNodes.append(child)
             } else if values.isRegularFile == true {
                 let size = Int64(values.fileAllocatedSize ?? values.fileSize ?? 0)
-                ownBytes += size
+                if let identity = Crypto.inode(of: entryPath) {
+                    let key = "\(identity.0):\(identity.1)"
+                    guard metrics.seenPhysicalFiles.insert(key).inserted else { continue }
+                }
+                ownBytes = CleanupAccounting.adding(ownBytes, max(size, 0))
                 ownFiles += 1
                 metrics.filesScanned += 1
-                metrics.bytesIndexed += size
+                metrics.bytesIndexed = CleanupAccounting.adding(metrics.bytesIndexed, max(size, 0))
                 if metrics.filesScanned % 150 == 0 {
                     reportProgress(entryPath)
                 }
@@ -302,20 +403,27 @@ public enum SpaceLensEngine {
         }
 
         // Cap children; heaviest first, rest into an aggregate "Other" node.
-        childNodes.sort { $0.totalBytes > $1.totalBytes }
+        childNodes.sort {
+            if $0.totalBytes == $1.totalBytes { return $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+            return $0.totalBytes > $1.totalBytes
+        }
         if childNodes.count > childrenCap {
             let kept = Array(childNodes.prefix(childrenCap))
             let rest = Array(childNodes.dropFirst(childrenCap))
             aggregateChildren = rest
-            aggregateBytes = rest.reduce(Int64(0)) { $0 + $1.totalBytes }
-            aggregateFiles = rest.reduce(0) { $0 + $1.totalFiles }
+            aggregateBytes = rest.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.totalBytes) }
+            aggregateFiles = rest.reduce(0) { count, child in
+                count > Int.max - child.totalFiles ? Int.max : count + child.totalFiles
+            }
             childNodes = kept
             if aggregateBytes > 0 {
+                // The aggregate owns the rest of the child nodes; storing
+                // both their sum and their children would double-count them.
                 childNodes.append(SpaceLensNode(
                     name: NSLocalizedString("space_lens.other", comment: ""),
-                    path: path,
-                    allocatedBytes: aggregateBytes,
-                    fileCount: aggregateFiles,
+                    path: path + "/__other__",
+                    allocatedBytes: 0,
+                    fileCount: 0,
                     isDirectory: true,
                     children: aggregateChildren,
                     isAggregate: true,
@@ -332,6 +440,74 @@ public enum SpaceLensEngine {
             isDirectory: true,
             children: childNodes,
             isSystemProtected: isSystem
+        )
+    }
+
+    /// Measure files directly below a depth boundary. This preserves real
+    /// bytes and an explicit partial state rather than manufacturing a
+    /// "Zero KB" child for work that was not expanded.
+    private static func measureShallowDirectory(
+        url: URL,
+        includeHidden: Bool,
+        metrics: ScanMetrics,
+        isSystemProtected: Bool,
+        reportProgress: (String) -> Void,
+        isCancelled: @escaping () -> Bool
+    ) -> SpaceLensNode {
+        let path = url.standardizedFileURL.path
+        let keys: Set<URLResourceKey> = [
+            .isRegularFileKey, .isSymbolicLinkKey, .isHiddenKey,
+            .fileSizeKey, .fileAllocatedSizeKey
+        ]
+        guard let entries = try? FileManager.default.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles]
+        ) else {
+            metrics.inaccessibleCount += 1
+            return SpaceLensNode(
+                name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
+                path: path,
+                allocatedBytes: 0,
+                isDirectory: true,
+                isSystemProtected: isSystemProtected,
+                isDenied: true,
+                isTruncated: true
+            )
+        }
+
+        var bytes: Int64 = 0
+        var files = 0
+        for (entryIndex, entry) in entries.enumerated() {
+            guard entryIndex < 10_000 else {
+                metrics.truncatedCount += 1
+                break
+            }
+            guard !isCancelled() else { break }
+            guard let values = try? entry.resourceValues(forKeys: keys),
+                  values.isSymbolicLink != true,
+                  values.isRegularFile == true else { continue }
+            let name = entry.lastPathComponent
+            if !includeHidden && (values.isHidden ?? name.hasPrefix(".")) { continue }
+            let size = Int64(values.fileAllocatedSize ?? values.fileSize ?? 0)
+            if let identity = Crypto.inode(of: entry.path) {
+                let key = "\(identity.0):\(identity.1)"
+                guard metrics.seenPhysicalFiles.insert(key).inserted else { continue }
+            }
+            bytes = CleanupAccounting.adding(bytes, max(size, 0))
+            files += 1
+            metrics.filesScanned += 1
+            metrics.bytesIndexed = CleanupAccounting.adding(metrics.bytesIndexed, max(size, 0))
+        }
+        reportProgress(path)
+        return SpaceLensNode(
+            name: url.lastPathComponent.isEmpty ? path : url.lastPathComponent,
+            path: path,
+            allocatedBytes: bytes,
+            fileCount: files,
+            isDirectory: true,
+            isSystemProtected: isSystemProtected,
+            isTruncated: true
         )
     }
 }

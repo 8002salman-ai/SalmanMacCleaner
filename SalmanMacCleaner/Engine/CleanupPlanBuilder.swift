@@ -67,16 +67,26 @@ public enum CleanupPlanBuilder {
 
     /// Calculate unique, non-overlapping allocated bytes for a set of classified records.
     public static func uniqueBytes(for records: [ClassifiedRecord]) -> Int64 {
-        let nonDescendantPaths = pruneDescendantPaths(records.map { $0.path })
-        let filtered = records.filter { nonDescendantPaths.contains(URL(fileURLWithPath: $0.path).standardizedFileURL.path) }
-        return filtered.reduce(Int64(0)) { $0 + $1.allocatedSize }
+        CleanupAccounting.uniqueBytes(for: records.map {
+            FileRecord(
+                path: $0.path,
+                parent: URL(fileURLWithPath: $0.path).deletingLastPathComponent().path,
+                name: $0.name,
+                isDirectory: $0.isDirectory,
+                logicalSize: $0.logicalSize,
+                allocatedSize: $0.allocatedSize,
+                modified: $0.modified,
+                device: $0.device,
+                inode: $0.inode,
+                ownerUID: $0.ownerUID,
+                isSymlink: $0.isSymlink
+            )
+        })
     }
 
     /// Calculate unique, non-overlapping bytes for a set of scanned items.
     public static func uniqueBytes(for items: [ScannedItem]) -> Int64 {
-        let nonDescendantPaths = pruneDescendantPaths(items.map { $0.path })
-        let filtered = items.filter { nonDescendantPaths.contains(URL(fileURLWithPath: $0.path).standardizedFileURL.path) }
-        return filtered.reduce(Int64(0)) { $0 + $1.size }
+        CleanupAccounting.uniqueBytes(for: items)
     }
 
     /// Build a plan from explicitly selected scan results.
@@ -89,7 +99,8 @@ public enum CleanupPlanBuilder {
         libraryRoots: [String] = [],
         reviewRoots: [String] = [],
         allowBundles: Bool = false,
-        authorizedRoots: [String] = []
+        authorizedRoots: [String] = [],
+        preclassified: [String: JunkVerdict] = [:]
     ) -> CleanupPlan {
         buildDetailed(
             selection: selection,
@@ -100,7 +111,8 @@ public enum CleanupPlanBuilder {
             libraryRoots: libraryRoots,
             reviewRoots: reviewRoots,
             allowBundles: allowBundles,
-            authorizedRoots: authorizedRoots
+            authorizedRoots: authorizedRoots,
+            preclassified: preclassified
         ).plan
     }
 
@@ -115,11 +127,18 @@ public enum CleanupPlanBuilder {
         libraryRoots: [String] = [],
         reviewRoots: [String] = [],
         allowBundles: Bool = false,
-        authorizedRoots: [String] = []
+        authorizedRoots: [String] = [],
+        preclassified: [String: JunkVerdict] = [:]
     ) -> CleanupPlanDraft {
-        let recordByPath = Dictionary(uniqueKeysWithValues: records.map {
-            (URL(fileURLWithPath: $0.path).standardizedFileURL.path, $0)
-        })
+        var recordByPath: [String: FileRecord] = [:]
+        for record in records {
+            let key = URL(fileURLWithPath: record.path).standardizedFileURL.path
+            // Keep the first observation. Duplicate database rows must never
+            // crash plan construction with Dictionary(uniqueKeysWithValues:).
+            if recordByPath[key] == nil {
+                recordByPath[key] = record
+            }
+        }
 
         // 1. Canonicalize selection and deduplicate identical paths
         var canonicalSelection: [ScannedItem] = []
@@ -128,28 +147,38 @@ public enum CleanupPlanBuilder {
             let canonical = URL(fileURLWithPath: item.path).standardizedFileURL.path
             guard !seenPaths.contains(canonical) else { continue }
             seenPaths.insert(canonical)
-            canonicalSelection.append(ScannedItem(path: canonical, size: item.size, isDirectory: item.isDirectory))
+            canonicalSelection.append(ScannedItem(
+                id: item.id,
+                path: canonical,
+                size: item.size,
+                isDirectory: item.isDirectory,
+                modificationDate: item.modificationDate,
+                detail: item.detail,
+                device: item.device,
+                inode: item.inode
+            ))
         }
 
-        // 2. Prune descendants if parent directory is selected
+        // 2. Prune descendants if parent directory is selected. A descendant
+        // is part of the parent's one physical cleanup selection, not a
+        // second executable item or a skipped failure.
         let nonDescendantPaths = pruneDescendantPaths(canonicalSelection.map { $0.path })
         let prunedSelection = canonicalSelection.filter { nonDescendantPaths.contains($0.path) }
 
         var items: [PlannedCleanupItem] = []
         var rejections: [(path: String, reason: String, bytes: Int64)] = []
         var seenInodes = Set<String>()
-        var selectedCount = 0
+        let selectedCount = prunedSelection.count
         var selectedBytes: Int64 = 0
 
         for item in prunedSelection {
             let canonical = item.path
-            selectedCount += 1
-            selectedBytes += item.size
 
             // Only SAFE and REVIEW items may enter a plan; PROTECTED items
             // are rejected by the validator, never planned. Application
             // bundles are admitted only for the explicit uninstaller flow.
             guard let record = recordByPath[canonical] else {
+                selectedBytes = CleanupAccounting.adding(selectedBytes, max(item.size, 0))
                 rejections.append((
                     canonical,
                     NSLocalizedString("plan.skip.no_record", comment: "") + " \(canonical)",
@@ -159,7 +188,7 @@ public enum CleanupPlanBuilder {
             }
 
             // Deduplicate identical file identities (hard links)
-            if record.inode != 0 {
+            if record.device != 0, record.inode != 0 {
                 let identityKey = "\(record.device)-\(record.inode)"
                 if seenInodes.contains(identityKey) {
                     rejections.append((
@@ -172,6 +201,10 @@ public enum CleanupPlanBuilder {
                 seenInodes.insert(identityKey)
             }
 
+            // Count physical bytes once. A second hard link remains a
+            // rejected selection, but contributes zero reclaimable bytes.
+            selectedBytes = CleanupAccounting.adding(selectedBytes, max(record.allocatedSize, 0))
+
             let isBundle = PathSafety.isAppBundle(canonical)
             let verdict: JunkVerdict
             if allowBundles && isBundle {
@@ -183,6 +216,12 @@ public enum CleanupPlanBuilder {
                     regenerable: false,
                     sourceRule: "uninstaller-bundle"
                 )
+            } else if let preclassifiedVerdict = preclassified[canonical] {
+                // The results workspace already displays an index verdict
+                // produced by the real scan. Reuse that exact verdict during
+                // plan construction so a custom authorized root cannot be
+                // silently reclassified by a different default-root table.
+                verdict = preclassifiedVerdict
             } else {
                 verdict = JunkClassifier.classify(
                     record,

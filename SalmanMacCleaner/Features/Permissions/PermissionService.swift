@@ -158,11 +158,17 @@ public final class PermissionService: ObservableObject {
         } else {
             if let handle = FileHandle(forReadingAtPath: path) {
                 defer { try? handle.close() }
-                _ = try? handle.read(upToCount: 32)
-                return (true, true)
+                do {
+                    _ = try handle.read(upToCount: 32)
+                    return (true, true)
+                } catch {
+                    return (true, false)
+                }
             }
-            if let data = FileManager.default.contents(atPath: path) {
-                return (true, !data.isEmpty || data.isEmpty)
+            if FileManager.default.contents(atPath: path) != nil {
+                // A non-nil result is a successful read, including an empty
+                // file; emptiness is not an access signal.
+                return (true, true)
             }
             return (true, false)
         }
@@ -217,13 +223,22 @@ public final class PermissionService: ObservableObject {
 
         let status: FullDiskAccessStatus
         if tccReadable > 0 {
+            // A readable existing TCC-protected probe is the only positive
+            // signal available to a sandboxed app; never infer FDA merely
+            // from ordinary Library access.
             status = .granted
-        } else if standardReadable > 0 {
-            if standardReadable == standardExisted {
+        } else if tccExisted > 0 {
+            if standardReadable == 0 {
+                status = .denied
+            } else if standardReadable == standardExisted {
                 status = .limited
             } else {
                 status = .folderOnly
             }
+        } else if standardReadable > 0 {
+            // No known protected probe exists on this account. The honest
+            // answer is unknown, not a fabricated limited/granted state.
+            status = .unknown
         } else if standardExisted > 0 {
             status = .denied
         } else {
