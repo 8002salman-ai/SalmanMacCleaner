@@ -140,6 +140,9 @@ xcodebuild -project SalmanMacCleaner.xcodeproj \
 tree; `Tools/validate_project.py`, `Tools/parse_check.py` and
 `Tools/xref_check.py` provide no-Xcode structural validation.
 
+CI and release workflows ship in `Support/workflows/` (see
+`Docs/ReleaseWorkflow.md` for the one-step activation).
+
 ## Project layout
 
 ```
@@ -153,8 +156,8 @@ SalmanMacCleaner/
   en.lproj/Localizable.strings    750+ localized strings
 SalmanMacCleanerTests/            60+ tests incl. fixture end-to-end flow
 Support/appcast.xml               Sparkle feed (stable raw URL)
-Docs/                             Sparkle setup + distribution architecture
-.github/workflows/                ci.yml + release.yml (sign/notarize/staple)
+Support/workflows/                ci.yml + release.yml (ready to activate)
+Docs/                             Sparkle setup, distribution, CI activation
 ```
 
 ## Privacy

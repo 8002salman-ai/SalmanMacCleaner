@@ -142,7 +142,7 @@ Tools/
   parse_check.py
   validate_project.py
   xref_check.py
-.github/workflows/
+Support/workflows/
   ci.yml
   release.yml
 Support/appcast.xml
