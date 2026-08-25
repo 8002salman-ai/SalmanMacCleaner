@@ -107,7 +107,7 @@ struct DuplicatesView: View {
             config: .standard(
                 itemCount: viewModel.selection.count,
                 totalBytes: viewModel.selectedBytes,
-                destructive: !appState.settings.dryRun
+                previewOnly: appState.settings.dryRun
             ),
             onConfirm: {
                 viewModel.performCleanup(settings: appState.settings, history: appState.history, activity: appState)

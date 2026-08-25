@@ -249,16 +249,34 @@ extension Color {
 
 extension ConfirmationDialogConfig {
     /// Standard preview/trash confirmation used by every feature view.
-    static func standard(itemCount: Int, totalBytes: Int64, destructive: Bool) -> ConfirmationDialogConfig {
+    ///
+    /// The wording follows the mode: a Preview Mode run asks to "Confirm
+    /// Preview" and states that nothing will move; only a real run offers
+    /// "Move Selected to Trash" as a destructive action. `destructive`
+    /// defaults to `!previewOnly` so the dialog can never label a preview
+    /// as a destructive move.
+    static func standard(itemCount: Int,
+                         totalBytes: Int64,
+                         previewOnly: Bool = false,
+                         destructive: Bool? = nil) -> ConfirmationDialogConfig {
         ConfirmationDialogConfig(
-            title: NSLocalizedString("common.confirm.title", comment: ""),
+            title: NSLocalizedString(
+                previewOnly ? "common.confirm.preview_title" : "common.confirm.title",
+                comment: ""
+            ),
             message: String(
-                format: NSLocalizedString("common.confirm.message", comment: ""),
+                format: NSLocalizedString(
+                    previewOnly ? "common.confirm.preview_message" : "common.confirm.message",
+                    comment: ""
+                ),
                 itemCount,
                 FileUtilities.formattedBytes(totalBytes)
             ),
-            confirmTitle: NSLocalizedString("common.confirm.trash", comment: ""),
-            destructive: destructive
+            confirmTitle: NSLocalizedString(
+                previewOnly ? "common.confirm.preview" : "common.confirm.trash",
+                comment: ""
+            ),
+            destructive: destructive ?? !previewOnly
         )
     }
 }

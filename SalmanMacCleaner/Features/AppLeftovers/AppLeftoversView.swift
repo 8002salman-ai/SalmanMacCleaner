@@ -136,7 +136,7 @@ struct AppLeftoversView: View {
         }
         .cleanupConfirmation(
             isPresented: $showConfirmation,
-            config: .standard(itemCount: selection.count, totalBytes: selectedBytes, destructive: !appState.settings.dryRun),
+            config: .standard(itemCount: selection.count, totalBytes: selectedBytes, previewOnly: appState.settings.dryRun),
             onConfirm: { performCleanup() }
         )
     }

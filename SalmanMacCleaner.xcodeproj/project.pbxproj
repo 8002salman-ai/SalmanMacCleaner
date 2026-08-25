@@ -87,17 +87,18 @@
 		DD000000000000000000000156 /* ModuleArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000155 /* ModuleArtwork.swift */; };
 		DD000000000000000000000158 /* ModuleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000157 /* ModuleCatalog.swift */; };
 		DD000000000000000000000160 /* CleanupEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000159 /* CleanupEngineTests.swift */; };
-		DD000000000000000000000162 /* DeepScanRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000161 /* DeepScanRegressionTests.swift */; };
-		DD000000000000000000000164 /* DuplicateFinderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000163 /* DuplicateFinderTests.swift */; };
-		DD000000000000000000000166 /* EngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000165 /* EngineTests.swift */; };
-		DD000000000000000000000168 /* FixtureEndToEndTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000167 /* FixtureEndToEndTests.swift */; };
-		DD000000000000000000000170 /* PathSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000169 /* PathSafetyTests.swift */; };
-		DD000000000000000000000172 /* PersistenceAndPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000171 /* PersistenceAndPlanTests.swift */; };
-		DD000000000000000000000174 /* ScanLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000173 /* ScanLifecycleTests.swift */; };
-		DD000000000000000000000176 /* SettingsHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000175 /* SettingsHistoryTests.swift */; };
-		DD000000000000000000000178 /* StartupManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000177 /* StartupManagerTests.swift */; };
-		DD000000000000000000000180 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000179 /* Assets.xcassets */; };
-		DD000000000000000000000182 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000181 /* Localizable.strings */; };
+		DD000000000000000000000162 /* CleanupWorkflowRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */; };
+		DD000000000000000000000164 /* DeepScanRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000163 /* DeepScanRegressionTests.swift */; };
+		DD000000000000000000000166 /* DuplicateFinderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000165 /* DuplicateFinderTests.swift */; };
+		DD000000000000000000000168 /* EngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000167 /* EngineTests.swift */; };
+		DD000000000000000000000170 /* FixtureEndToEndTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000169 /* FixtureEndToEndTests.swift */; };
+		DD000000000000000000000172 /* PathSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000171 /* PathSafetyTests.swift */; };
+		DD000000000000000000000174 /* PersistenceAndPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000173 /* PersistenceAndPlanTests.swift */; };
+		DD000000000000000000000176 /* ScanLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000175 /* ScanLifecycleTests.swift */; };
+		DD000000000000000000000178 /* SettingsHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000177 /* SettingsHistoryTests.swift */; };
+		DD000000000000000000000180 /* StartupManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000179 /* StartupManagerTests.swift */; };
+		DD000000000000000000000182 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000181 /* Assets.xcassets */; };
+		DD000000000000000000000184 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000183 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -191,21 +192,22 @@
 		DD000000000000000000000155 /* ModuleArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleArtwork.swift; sourceTree = "<group>"; };
 		DD000000000000000000000157 /* ModuleCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleCatalog.swift; sourceTree = "<group>"; };
 		DD000000000000000000000159 /* CleanupEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupEngineTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000161 /* DeepScanRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanRegressionTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000163 /* DuplicateFinderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFinderTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000165 /* EngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000167 /* FixtureEndToEndTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureEndToEndTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000169 /* PathSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSafetyTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000171 /* PersistenceAndPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceAndPlanTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000173 /* ScanLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLifecycleTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000175 /* SettingsHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsHistoryTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000177 /* StartupManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupManagerTests.swift; sourceTree = "<group>"; };
-		DD000000000000000000000179 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		DD000000000000000000000181 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = "en.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		DD000000000000000000000183 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		DD000000000000000000000184 /* SalmanMacCleaner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SalmanMacCleaner.entitlements; sourceTree = "<group>"; };
-		DD000000000000000000000185 /* SalmanMacCleaner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SalmanMacCleaner.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		DD000000000000000000000186 /* SalmanMacCleanerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SalmanMacCleanerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupWorkflowRegressionTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000163 /* DeepScanRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanRegressionTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000165 /* DuplicateFinderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFinderTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000167 /* EngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000169 /* FixtureEndToEndTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureEndToEndTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000171 /* PathSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSafetyTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000173 /* PersistenceAndPlanTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceAndPlanTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000175 /* ScanLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLifecycleTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000177 /* SettingsHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsHistoryTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000179 /* StartupManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupManagerTests.swift; sourceTree = "<group>"; };
+		DD000000000000000000000181 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		DD000000000000000000000183 /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = "en.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		DD000000000000000000000185 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		DD000000000000000000000186 /* SalmanMacCleaner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SalmanMacCleaner.entitlements; sourceTree = "<group>"; };
+		DD000000000000000000000187 /* SalmanMacCleaner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SalmanMacCleaner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD000000000000000000000188 /* SalmanMacCleanerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SalmanMacCleanerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -213,7 +215,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DD000000000000000000000244 /* Sparkle in Frameworks */,
+				DD000000000000000000000246 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -227,58 +229,59 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		DD000000000000000000000187 = {
+		DD000000000000000000000189 = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000188 /* SalmanMacCleaner */,
-				DD000000000000000000000189 /* SalmanMacCleanerTests */,
-				DD000000000000000000000190 /* Products */,
+				DD000000000000000000000190 /* SalmanMacCleaner */,
+				DD000000000000000000000191 /* SalmanMacCleanerTests */,
+				DD000000000000000000000192 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000188 /* SalmanMacCleaner */ = {
+		DD000000000000000000000190 /* SalmanMacCleaner */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000001 /* SalmanMacCleanerApp.swift */,
-				DD000000000000000000000183 /* Info.plist */,
-				DD000000000000000000000184 /* SalmanMacCleaner.entitlements */,
-				DD000000000000000000000179 /* Assets.xcassets */,
-				DD000000000000000000000181 /* Localizable.strings */,
-				DD000000000000000000000191 /* Core */,
-				DD000000000000000000000192 /* Engine */,
-				DD000000000000000000000218 /* Features */,
-				DD000000000000000000000241 /* UI */,
+				DD000000000000000000000185 /* Info.plist */,
+				DD000000000000000000000186 /* SalmanMacCleaner.entitlements */,
+				DD000000000000000000000181 /* Assets.xcassets */,
+				DD000000000000000000000183 /* Localizable.strings */,
+				DD000000000000000000000193 /* Core */,
+				DD000000000000000000000194 /* Engine */,
+				DD000000000000000000000220 /* Features */,
+				DD000000000000000000000243 /* UI */,
 			);
 			path = SalmanMacCleaner;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000189 /* SalmanMacCleanerTests */ = {
+		DD000000000000000000000191 /* SalmanMacCleanerTests */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000159 /* CleanupEngineTests.swift */,
-				DD000000000000000000000161 /* DeepScanRegressionTests.swift */,
-				DD000000000000000000000163 /* DuplicateFinderTests.swift */,
-				DD000000000000000000000165 /* EngineTests.swift */,
-				DD000000000000000000000167 /* FixtureEndToEndTests.swift */,
-				DD000000000000000000000169 /* PathSafetyTests.swift */,
-				DD000000000000000000000171 /* PersistenceAndPlanTests.swift */,
-				DD000000000000000000000173 /* ScanLifecycleTests.swift */,
-				DD000000000000000000000175 /* SettingsHistoryTests.swift */,
-				DD000000000000000000000177 /* StartupManagerTests.swift */,
+				DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */,
+				DD000000000000000000000163 /* DeepScanRegressionTests.swift */,
+				DD000000000000000000000165 /* DuplicateFinderTests.swift */,
+				DD000000000000000000000167 /* EngineTests.swift */,
+				DD000000000000000000000169 /* FixtureEndToEndTests.swift */,
+				DD000000000000000000000171 /* PathSafetyTests.swift */,
+				DD000000000000000000000173 /* PersistenceAndPlanTests.swift */,
+				DD000000000000000000000175 /* ScanLifecycleTests.swift */,
+				DD000000000000000000000177 /* SettingsHistoryTests.swift */,
+				DD000000000000000000000179 /* StartupManagerTests.swift */,
 			);
 			path = SalmanMacCleanerTests;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000190 /* Products */ = {
+		DD000000000000000000000192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000185 /* SalmanMacCleaner.app */,
-				DD000000000000000000000186 /* SalmanMacCleanerTests.xctest */,
+				DD000000000000000000000187 /* SalmanMacCleaner.app */,
+				DD000000000000000000000188 /* SalmanMacCleanerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000191 /* Core */ = {
+		DD000000000000000000000193 /* Core */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000003 /* AppState.swift */,
@@ -295,7 +298,7 @@
 			path = Core;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000192 /* Engine */ = {
+		DD000000000000000000000194 /* Engine */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000023 /* ApplicationInventoryService.swift */,
@@ -324,7 +327,7 @@
 			path = Engine;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000218 /* Features */ = {
+		DD000000000000000000000220 /* Features */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000067 /* ActivityHistoryView.swift */,
@@ -336,27 +339,27 @@
 				DD000000000000000000000079 /* ScanCoordinator.swift */,
 				DD000000000000000000000081 /* SmartCareView.swift */,
 				DD000000000000000000000083 /* SystemJunkView.swift */,
-				DD000000000000000000000193 /* AppLeftovers */,
-				DD000000000000000000000194 /* AppUpdater */,
-				DD000000000000000000000195 /* Applications */,
-				DD000000000000000000000196 /* Dashboard */,
-				DD000000000000000000000197 /* DeveloperCaches */,
-				DD000000000000000000000200 /* Duplicates */,
-				DD000000000000000000000203 /* LargeFiles */,
-				DD000000000000000000000206 /* MyClutter */,
-				DD000000000000000000000207 /* MyTools */,
-				DD000000000000000000000208 /* Performance */,
-				DD000000000000000000000209 /* Permissions */,
-				DD000000000000000000000211 /* SecurityAudit */,
-				DD000000000000000000000212 /* SpaceLens */,
-				DD000000000000000000000214 /* StartupItems */,
-				DD000000000000000000000216 /* TrashBins */,
-				DD000000000000000000000217 /* Uninstaller */,
+				DD000000000000000000000195 /* AppLeftovers */,
+				DD000000000000000000000196 /* AppUpdater */,
+				DD000000000000000000000197 /* Applications */,
+				DD000000000000000000000198 /* Dashboard */,
+				DD000000000000000000000199 /* DeveloperCaches */,
+				DD000000000000000000000202 /* Duplicates */,
+				DD000000000000000000000205 /* LargeFiles */,
+				DD000000000000000000000208 /* MyClutter */,
+				DD000000000000000000000209 /* MyTools */,
+				DD000000000000000000000210 /* Performance */,
+				DD000000000000000000000211 /* Permissions */,
+				DD000000000000000000000213 /* SecurityAudit */,
+				DD000000000000000000000214 /* SpaceLens */,
+				DD000000000000000000000216 /* StartupItems */,
+				DD000000000000000000000218 /* TrashBins */,
+				DD000000000000000000000219 /* Uninstaller */,
 			);
 			path = Features;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000219 /* AppLeftovers */ = {
+		DD000000000000000000000221 /* AppLeftovers */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000085 /* AppLeftoversView.swift */,
@@ -364,7 +367,7 @@
 			path = AppLeftovers;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000220 /* AppUpdater */ = {
+		DD000000000000000000000222 /* AppUpdater */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000087 /* AppUpdaterView.swift */,
@@ -372,7 +375,7 @@
 			path = AppUpdater;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000221 /* Applications */ = {
+		DD000000000000000000000223 /* Applications */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000089 /* ApplicationsView.swift */,
@@ -380,7 +383,7 @@
 			path = Applications;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000222 /* Dashboard */ = {
+		DD000000000000000000000224 /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000091 /* StorageOverview.swift */,
@@ -388,7 +391,7 @@
 			path = Dashboard;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000223 /* DeveloperCaches */ = {
+		DD000000000000000000000225 /* DeveloperCaches */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000093 /* DeveloperCacheScanner.swift */,
@@ -398,7 +401,7 @@
 			path = DeveloperCaches;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000224 /* Duplicates */ = {
+		DD000000000000000000000226 /* Duplicates */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000099 /* DuplicateFinder.swift */,
@@ -408,7 +411,7 @@
 			path = Duplicates;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000225 /* LargeFiles */ = {
+		DD000000000000000000000227 /* LargeFiles */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000105 /* LargeFileScanner.swift */,
@@ -418,7 +421,7 @@
 			path = LargeFiles;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000226 /* MyClutter */ = {
+		DD000000000000000000000228 /* MyClutter */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000111 /* MyClutterView.swift */,
@@ -426,7 +429,7 @@
 			path = MyClutter;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000227 /* MyTools */ = {
+		DD000000000000000000000229 /* MyTools */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000113 /* MyToolsView.swift */,
@@ -434,7 +437,7 @@
 			path = MyTools;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000228 /* Performance */ = {
+		DD000000000000000000000230 /* Performance */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000115 /* PerformanceView.swift */,
@@ -442,7 +445,7 @@
 			path = Performance;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000229 /* Permissions */ = {
+		DD000000000000000000000231 /* Permissions */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000117 /* PermissionService.swift */,
@@ -451,7 +454,7 @@
 			path = Permissions;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000230 /* SecurityAudit */ = {
+		DD000000000000000000000232 /* SecurityAudit */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000121 /* SecurityAuditView.swift */,
@@ -459,7 +462,7 @@
 			path = SecurityAudit;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000231 /* SpaceLens */ = {
+		DD000000000000000000000233 /* SpaceLens */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000123 /* SpaceLensEngine.swift */,
@@ -468,7 +471,7 @@
 			path = SpaceLens;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000232 /* StartupItems */ = {
+		DD000000000000000000000234 /* StartupItems */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000127 /* StartupItemsView.swift */,
@@ -477,7 +480,7 @@
 			path = StartupItems;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000233 /* TrashBins */ = {
+		DD000000000000000000000235 /* TrashBins */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000131 /* TrashBinsView.swift */,
@@ -485,7 +488,7 @@
 			path = TrashBins;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000234 /* Uninstaller */ = {
+		DD000000000000000000000236 /* Uninstaller */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000133 /* UninstallerView.swift */,
@@ -493,7 +496,7 @@
 			path = Uninstaller;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000241 /* UI */ = {
+		DD000000000000000000000243 /* UI */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000135 /* ContentView.swift */,
@@ -502,12 +505,12 @@
 				DD000000000000000000000141 /* SettingsView.swift */,
 				DD000000000000000000000143 /* SharedComponents.swift */,
 				DD000000000000000000000145 /* SidebarView.swift */,
-				DD000000000000000000000235 /* DesignSystem */,
+				DD000000000000000000000237 /* DesignSystem */,
 			);
 			path = UI;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000242 /* DesignSystem */ = {
+		DD000000000000000000000244 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
 				DD000000000000000000000147 /* AccessibilityEnvironment.swift */,
@@ -537,10 +540,10 @@
 			);
 			name = SalmanMacCleaner;
 			packageProductDependencies = (
-				DD000000000000000000000244 /* Sparkle */,
+				DD000000000000000000000246 /* Sparkle */,
 			);
 			productName = SalmanMacCleaner;
-			productReference = DD000000000000000000000185 /* SalmanMacCleaner.app */;
+			productReference = DD000000000000000000000187 /* SalmanMacCleaner.app */;
 			productType = "com.apple.product-type.application";
 		};
 		400000000000000000000002 /* SalmanMacCleanerTests */ = {
@@ -558,7 +561,7 @@
 			);
 			name = SalmanMacCleanerTests;
 			productName = SalmanMacCleanerTests;
-			productReference = DD000000000000000000000186 /* SalmanMacCleanerTests.xctest */;
+			productReference = DD000000000000000000000188 /* SalmanMacCleanerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -588,11 +591,11 @@
 				en,
 				Base,
 			);
-			mainGroup = DD000000000000000000000187;
+			mainGroup = DD000000000000000000000189;
 			packageReferences = (
-				DD000000000000000000000243 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				DD000000000000000000000245 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
-			productRefGroup = DD000000000000000000000190 /* Products */;
+			productRefGroup = DD000000000000000000000192 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -607,8 +610,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DD000000000000000000000180 /* Assets.xcassets in Resources */,
-				DD000000000000000000000182 /* Localizable.strings in Resources */,
+				DD000000000000000000000182 /* Assets.xcassets in Resources */,
+				DD000000000000000000000184 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -713,15 +716,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				DD000000000000000000000160 /* CleanupEngineTests.swift in Sources */,
-				DD000000000000000000000162 /* DeepScanRegressionTests.swift in Sources */,
-				DD000000000000000000000164 /* DuplicateFinderTests.swift in Sources */,
-				DD000000000000000000000166 /* EngineTests.swift in Sources */,
-				DD000000000000000000000168 /* FixtureEndToEndTests.swift in Sources */,
-				DD000000000000000000000170 /* PathSafetyTests.swift in Sources */,
-				DD000000000000000000000172 /* PersistenceAndPlanTests.swift in Sources */,
-				DD000000000000000000000174 /* ScanLifecycleTests.swift in Sources */,
-				DD000000000000000000000176 /* SettingsHistoryTests.swift in Sources */,
-				DD000000000000000000000178 /* StartupManagerTests.swift in Sources */,
+				DD000000000000000000000162 /* CleanupWorkflowRegressionTests.swift in Sources */,
+				DD000000000000000000000164 /* DeepScanRegressionTests.swift in Sources */,
+				DD000000000000000000000166 /* DuplicateFinderTests.swift in Sources */,
+				DD000000000000000000000168 /* EngineTests.swift in Sources */,
+				DD000000000000000000000170 /* FixtureEndToEndTests.swift in Sources */,
+				DD000000000000000000000172 /* PathSafetyTests.swift in Sources */,
+				DD000000000000000000000174 /* PersistenceAndPlanTests.swift in Sources */,
+				DD000000000000000000000176 /* ScanLifecycleTests.swift in Sources */,
+				DD000000000000000000000178 /* SettingsHistoryTests.swift in Sources */,
+				DD000000000000000000000180 /* StartupManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -870,7 +874,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleaner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -899,7 +903,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleaner;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -917,7 +921,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleanerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -936,7 +940,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.0;
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.salman.SalmanMacCleanerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

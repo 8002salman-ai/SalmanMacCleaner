@@ -37,7 +37,7 @@
 "common.trash_selected.help" = "Move only the selected items to the Trash. Nothing is permanently deleted.";
 "common.confirm.title" = "Confirm Cleanup";
 "common.confirm.message" = "%d item(s) selected, %@ total. Items are moved to the Trash only — you can always restore them. Continue?";
-"common.confirm.trash" = "Move to Trash";
+"common.confirm.trash" = "Move Selected to Trash";
 
 /* Search */
 "search.items.prompt" = "Search results";
@@ -851,3 +851,24 @@
 "classify.reason.uninstall_bundle" = "Application bundle — included only in the explicit uninstaller flow";
 "results.tile.bytes" = "Bytes scanned";
 "results.tile.elapsed" = "Elapsed";
+
+/* Cleanup workflow — preview vs. trash wording and the exact run report */
+"common.confirm.preview" = "Confirm Preview";
+"common.confirm.preview_title" = "Confirm Preview";
+"common.confirm.preview_message" = "%d item(s) selected, %@ total. Preview Mode is on: every item is revalidated and reported, and nothing is moved or deleted. Continue?";
+"results.preview_selected" = "Preview Selected";
+"results.preview_selected.help" = "Revalidate and list the selected items without moving anything";
+"results.move_to_trash" = "Move Selected to Trash";
+"results.previewing" = "Previewing selected items…";
+"results.reveal_in_trash" = "Reveal in Trash";
+"results.reveal_in_trash.help" = "Show the moved items in the Trash so they can be restored";
+"uninstaller.previewing" = "Previewing uninstall…";
+"plan.skip.no_record" = "Item metadata is unavailable:";
+"plan.skip.protected" = "Protected by policy, not eligible for cleanup:";
+"plan.skip.not_listed" = "No longer in the current results:";
+"cleanup.report.previewed" = "Previewed %lld item(s), %@ — nothing was moved.";
+"cleanup.report.moved" = "Moved %lld item(s), %@ to the Trash.";
+"cleanup.report.failed" = "· %lld failed";
+"cleanup.report.skipped" = "· %lld skipped";
+"cleanup.report.cancelled" = "· cancelled";
+"cleanup.report.counts" = "Selected %lld · Planned %lld · Moved %lld · Previewed %lld · Skipped %lld · Failed %lld · %@";
