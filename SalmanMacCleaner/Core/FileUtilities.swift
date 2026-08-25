@@ -21,7 +21,12 @@ public protocol FileManaging {
     func createFile(atPath path: String, contents data: Data?, attributes attr: [FileAttributeKey: Any]?) -> Bool
 }
 
-extension FileManager: FileManaging {}
+extension FileManager: FileManaging {
+    public func isDirectory(atPath path: String) -> Bool {
+        var isDirectory: ObjCBool = false
+        return fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+    }
+}
 
 public enum FileUtilities {
 

@@ -171,6 +171,8 @@ public enum ScanCoverageReport {
             skippedMounts: mounts,
             skippedNetworkVolumes: network,
             skippedTimeMachine: timeMachine,
+            notGrantedRoots: notGranted,
+            rootDetails: details,
             symlinksRejected: 0,
             filesChangedDuringScan: 0,
             totalErrors: details.reduce(0) { $0 + $1.errors },
@@ -178,8 +180,6 @@ public enum ScanCoverageReport {
             confidence: confidence,
             limitedByPermission: limitedByPermission,
             permissionReason: permissionReason,
-            notGrantedRoots: notGranted,
-            rootDetails: details
         )
     }
 

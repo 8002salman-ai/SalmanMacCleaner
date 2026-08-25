@@ -162,7 +162,7 @@ public final class DeepScanCoordinator: ObservableObject {
 
         func emitPhase(_ phase: ScanPhase, detail: String? = nil) async {
             await aggregator.begin(phase: phase)
-            emit(.phaseChanged(phase, detail))
+            emit(.phaseChanged(phase, detail: detail))
         }
 
         func emitProgress(force: Bool = false) async {

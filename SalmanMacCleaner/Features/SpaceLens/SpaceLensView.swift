@@ -268,7 +268,7 @@ public struct SpaceLensView: View {
                         context.draw(
                             Text(bubble.source.name)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white),
+                                .foregroundColor(.white),
                             at: CGPoint(x: rect.midX, y: rect.midY)
                         )
                     }

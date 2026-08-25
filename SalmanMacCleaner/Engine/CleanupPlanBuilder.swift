@@ -15,7 +15,7 @@
 import Foundation
 
 /// A plan plus the exact accounting of the selection it came from.
-public struct CleanupPlanDraft: Equatable {
+public struct CleanupPlanDraft {
     public var plan: CleanupPlan
     /// Selections that never entered the plan, with the exact reason.
     public var rejections: [(path: String, reason: String, bytes: Int64)]

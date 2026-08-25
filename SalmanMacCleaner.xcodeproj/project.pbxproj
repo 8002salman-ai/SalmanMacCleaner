@@ -8,84 +8,84 @@
 
 /* Begin PBXBuildFile section */
 		DD000000000000000000000002 /* SalmanMacCleanerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000001 /* SalmanMacCleanerApp.swift */; };
-		DD000000000000000000000004 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000003 /* AppState.swift */; };
-		DD000000000000000000000006 /* CleanupEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000005 /* CleanupEngine.swift */; };
-		DD000000000000000000000008 /* Crypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000007 /* Crypto.swift */; };
-		DD000000000000000000000010 /* FileUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000009 /* FileUtilities.swift */; };
-		DD000000000000000000000012 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000011 /* HistoryStore.swift */; };
-		DD000000000000000000000014 /* PathSafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000013 /* PathSafety.swift */; };
-		DD000000000000000000000016 /* ScanSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000015 /* ScanSessionStore.swift */; };
-		DD000000000000000000000018 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000017 /* SettingsStore.swift */; };
-		DD000000000000000000000020 /* SparkleUpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000019 /* SparkleUpdaterController.swift */; };
-		DD000000000000000000000022 /* VersionComparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000021 /* VersionComparator.swift */; };
-		DD000000000000000000000024 /* ApplicationInventoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000023 /* ApplicationInventoryService.swift */; };
-		DD000000000000000000000026 /* CleanupExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000025 /* CleanupExecutor.swift */; };
-		DD000000000000000000000028 /* CleanupPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000027 /* CleanupPlanBuilder.swift */; };
-		DD000000000000000000000030 /* CleanupSafetyValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000029 /* CleanupSafetyValidator.swift */; };
-		DD000000000000000000000032 /* DeepScanCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000031 /* DeepScanCoordinator.swift */; };
-		DD000000000000000000000034 /* DuplicatePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000033 /* DuplicatePipeline.swift */; };
-		DD000000000000000000000036 /* FileInventoryScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000035 /* FileInventoryScanner.swift */; };
-		DD000000000000000000000038 /* IgnoreListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000037 /* IgnoreListStore.swift */; };
-		DD000000000000000000000040 /* IncrementalScanSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000039 /* IncrementalScanSupport.swift */; };
-		DD000000000000000000000042 /* JunkClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000041 /* JunkClassifier.swift */; };
-		DD000000000000000000000044 /* MachOArchitecture.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000043 /* MachOArchitecture.swift */; };
-		DD000000000000000000000046 /* MetadataCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000045 /* MetadataCollector.swift */; };
-		DD000000000000000000000048 /* ProcessSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000047 /* ProcessSampler.swift */; };
-		DD000000000000000000000050 /* ResidualCorrelationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000049 /* ResidualCorrelationEngine.swift */; };
-		DD000000000000000000000052 /* ScanCoverageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000051 /* ScanCoverageReport.swift */; };
-		DD000000000000000000000054 /* ScanGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000053 /* ScanGate.swift */; };
-		DD000000000000000000000056 /* ScanIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000055 /* ScanIndexStore.swift */; };
-		DD000000000000000000000058 /* ScanModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000057 /* ScanModels.swift */; };
-		DD000000000000000000000060 /* ScanPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000059 /* ScanPolicy.swift */; };
-		DD000000000000000000000062 /* ScanProgressAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000061 /* ScanProgressAggregator.swift */; };
-		DD000000000000000000000064 /* TraversalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000063 /* TraversalPolicy.swift */; };
-		DD000000000000000000000066 /* VolumeDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000065 /* VolumeDiscoveryService.swift */; };
-		DD000000000000000000000068 /* ActivityHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000067 /* ActivityHistoryView.swift */; };
-		DD000000000000000000000070 /* DeepScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000069 /* DeepScanView.swift */; };
-		DD000000000000000000000072 /* FolderAuthorizations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000071 /* FolderAuthorizations.swift */; };
-		DD000000000000000000000074 /* FolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000073 /* FolderPicker.swift */; };
-		DD000000000000000000000076 /* LargeOldFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000075 /* LargeOldFilesView.swift */; };
-		DD000000000000000000000078 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000077 /* Models.swift */; };
-		DD000000000000000000000080 /* ScanCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000079 /* ScanCoordinator.swift */; };
-		DD000000000000000000000082 /* SmartCareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000081 /* SmartCareView.swift */; };
-		DD000000000000000000000084 /* SystemJunkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000083 /* SystemJunkView.swift */; };
-		DD000000000000000000000086 /* AppLeftoversView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000085 /* AppLeftoversView.swift */; };
-		DD000000000000000000000088 /* AppUpdaterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000087 /* AppUpdaterView.swift */; };
-		DD000000000000000000000090 /* ApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000089 /* ApplicationsView.swift */; };
-		DD000000000000000000000092 /* StorageOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000091 /* StorageOverview.swift */; };
-		DD000000000000000000000094 /* DeveloperCacheScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000093 /* DeveloperCacheScanner.swift */; };
-		DD000000000000000000000096 /* DeveloperCachesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000095 /* DeveloperCachesView.swift */; };
-		DD000000000000000000000098 /* DeveloperCachesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000097 /* DeveloperCachesViewModel.swift */; };
-		DD000000000000000000000100 /* DuplicateFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000099 /* DuplicateFinder.swift */; };
-		DD000000000000000000000102 /* DuplicatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000101 /* DuplicatesView.swift */; };
-		DD000000000000000000000104 /* DuplicatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000103 /* DuplicatesViewModel.swift */; };
-		DD000000000000000000000106 /* LargeFileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000105 /* LargeFileScanner.swift */; };
-		DD000000000000000000000108 /* LargeFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000107 /* LargeFilesView.swift */; };
-		DD000000000000000000000110 /* LargeFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000109 /* LargeFilesViewModel.swift */; };
-		DD000000000000000000000112 /* MyClutterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000111 /* MyClutterView.swift */; };
-		DD000000000000000000000114 /* MyToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000113 /* MyToolsView.swift */; };
-		DD000000000000000000000116 /* PerformanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000115 /* PerformanceView.swift */; };
-		DD000000000000000000000118 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000117 /* PermissionService.swift */; };
-		DD000000000000000000000120 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000119 /* PermissionsView.swift */; };
-		DD000000000000000000000122 /* SecurityAuditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000121 /* SecurityAuditView.swift */; };
-		DD000000000000000000000124 /* SpaceLensEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000123 /* SpaceLensEngine.swift */; };
-		DD000000000000000000000126 /* SpaceLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000125 /* SpaceLensView.swift */; };
-		DD000000000000000000000128 /* StartupItemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000127 /* StartupItemsView.swift */; };
-		DD000000000000000000000130 /* StartupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000129 /* StartupManager.swift */; };
-		DD000000000000000000000132 /* TrashBinsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000131 /* TrashBinsView.swift */; };
-		DD000000000000000000000134 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000133 /* UninstallerView.swift */; };
-		DD000000000000000000000136 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000135 /* ContentView.swift */; };
-		DD000000000000000000000138 /* HeroScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000137 /* HeroScreenView.swift */; };
-		DD000000000000000000000140 /* ResultsWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000139 /* ResultsWorkspaceView.swift */; };
-		DD000000000000000000000142 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000141 /* SettingsView.swift */; };
-		DD000000000000000000000144 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000143 /* SharedComponents.swift */; };
-		DD000000000000000000000146 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000145 /* SidebarView.swift */; };
-		DD000000000000000000000148 /* AccessibilityEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000147 /* AccessibilityEnvironment.swift */; };
-		DD000000000000000000000150 /* AuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000149 /* AuroraBackground.swift */; };
-		DD000000000000000000000152 /* AuroraTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000151 /* AuroraTheme.swift */; };
-		DD000000000000000000000154 /* GlassComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000153 /* GlassComponents.swift */; };
-		DD000000000000000000000156 /* ModuleArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000155 /* ModuleArtwork.swift */; };
-		DD000000000000000000000158 /* ModuleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000157 /* ModuleCatalog.swift */; };
+		DD000000000000000000000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000003 /* ContentView.swift */; };
+		DD000000000000000000000006 /* HeroScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000005 /* HeroScreenView.swift */; };
+		DD000000000000000000000008 /* ResultsWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000007 /* ResultsWorkspaceView.swift */; };
+		DD000000000000000000000010 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000009 /* SettingsView.swift */; };
+		DD000000000000000000000012 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000011 /* SharedComponents.swift */; };
+		DD000000000000000000000014 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000013 /* SidebarView.swift */; };
+		DD000000000000000000000016 /* AccessibilityEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000015 /* AccessibilityEnvironment.swift */; };
+		DD000000000000000000000018 /* AuroraBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000017 /* AuroraBackground.swift */; };
+		DD000000000000000000000020 /* AuroraTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000019 /* AuroraTheme.swift */; };
+		DD000000000000000000000022 /* GlassComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000021 /* GlassComponents.swift */; };
+		DD000000000000000000000024 /* ModuleArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000023 /* ModuleArtwork.swift */; };
+		DD000000000000000000000026 /* ModuleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000025 /* ModuleCatalog.swift */; };
+		DD000000000000000000000028 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000027 /* AppState.swift */; };
+		DD000000000000000000000030 /* CleanupEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000029 /* CleanupEngine.swift */; };
+		DD000000000000000000000032 /* Crypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000031 /* Crypto.swift */; };
+		DD000000000000000000000034 /* FileUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000033 /* FileUtilities.swift */; };
+		DD000000000000000000000036 /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000035 /* HistoryStore.swift */; };
+		DD000000000000000000000038 /* PathSafety.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000037 /* PathSafety.swift */; };
+		DD000000000000000000000040 /* ScanSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000039 /* ScanSessionStore.swift */; };
+		DD000000000000000000000042 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000041 /* SettingsStore.swift */; };
+		DD000000000000000000000044 /* SparkleUpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000043 /* SparkleUpdaterController.swift */; };
+		DD000000000000000000000046 /* VersionComparator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000045 /* VersionComparator.swift */; };
+		DD000000000000000000000048 /* ActivityHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000047 /* ActivityHistoryView.swift */; };
+		DD000000000000000000000050 /* DeepScanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000049 /* DeepScanView.swift */; };
+		DD000000000000000000000052 /* FolderAuthorizations.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000051 /* FolderAuthorizations.swift */; };
+		DD000000000000000000000054 /* FolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000053 /* FolderPicker.swift */; };
+		DD000000000000000000000056 /* LargeOldFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000055 /* LargeOldFilesView.swift */; };
+		DD000000000000000000000058 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000057 /* Models.swift */; };
+		DD000000000000000000000060 /* ScanCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000059 /* ScanCoordinator.swift */; };
+		DD000000000000000000000062 /* SmartCareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000061 /* SmartCareView.swift */; };
+		DD000000000000000000000064 /* SystemJunkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000063 /* SystemJunkView.swift */; };
+		DD000000000000000000000066 /* DeveloperCacheScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000065 /* DeveloperCacheScanner.swift */; };
+		DD000000000000000000000068 /* DeveloperCachesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000067 /* DeveloperCachesView.swift */; };
+		DD000000000000000000000070 /* DeveloperCachesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000069 /* DeveloperCachesViewModel.swift */; };
+		DD000000000000000000000072 /* StartupItemsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000071 /* StartupItemsView.swift */; };
+		DD000000000000000000000074 /* StartupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000073 /* StartupManager.swift */; };
+		DD000000000000000000000076 /* SecurityAuditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000075 /* SecurityAuditView.swift */; };
+		DD000000000000000000000078 /* UninstallerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000077 /* UninstallerView.swift */; };
+		DD000000000000000000000080 /* MyClutterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000079 /* MyClutterView.swift */; };
+		DD000000000000000000000082 /* LargeFileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000081 /* LargeFileScanner.swift */; };
+		DD000000000000000000000084 /* LargeFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000083 /* LargeFilesView.swift */; };
+		DD000000000000000000000086 /* LargeFilesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000085 /* LargeFilesViewModel.swift */; };
+		DD000000000000000000000088 /* PermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000087 /* PermissionService.swift */; };
+		DD000000000000000000000090 /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000089 /* PermissionsView.swift */; };
+		DD000000000000000000000092 /* MyToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000091 /* MyToolsView.swift */; };
+		DD000000000000000000000094 /* StorageOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000093 /* StorageOverview.swift */; };
+		DD000000000000000000000096 /* AppLeftoversView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000095 /* AppLeftoversView.swift */; };
+		DD000000000000000000000098 /* ApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000097 /* ApplicationsView.swift */; };
+		DD000000000000000000000100 /* TrashBinsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000099 /* TrashBinsView.swift */; };
+		DD000000000000000000000102 /* PerformanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000101 /* PerformanceView.swift */; };
+		DD000000000000000000000104 /* DuplicateFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000103 /* DuplicateFinder.swift */; };
+		DD000000000000000000000106 /* DuplicatesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000105 /* DuplicatesView.swift */; };
+		DD000000000000000000000108 /* DuplicatesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000107 /* DuplicatesViewModel.swift */; };
+		DD000000000000000000000110 /* SpaceLensEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000109 /* SpaceLensEngine.swift */; };
+		DD000000000000000000000112 /* SpaceLensView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000111 /* SpaceLensView.swift */; };
+		DD000000000000000000000114 /* AppUpdaterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000113 /* AppUpdaterView.swift */; };
+		DD000000000000000000000116 /* ApplicationInventoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000115 /* ApplicationInventoryService.swift */; };
+		DD000000000000000000000118 /* CleanupExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000117 /* CleanupExecutor.swift */; };
+		DD000000000000000000000120 /* CleanupPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000119 /* CleanupPlanBuilder.swift */; };
+		DD000000000000000000000122 /* CleanupSafetyValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000121 /* CleanupSafetyValidator.swift */; };
+		DD000000000000000000000124 /* DeepScanCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000123 /* DeepScanCoordinator.swift */; };
+		DD000000000000000000000126 /* DuplicatePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000125 /* DuplicatePipeline.swift */; };
+		DD000000000000000000000128 /* FileInventoryScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000127 /* FileInventoryScanner.swift */; };
+		DD000000000000000000000130 /* IgnoreListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000129 /* IgnoreListStore.swift */; };
+		DD000000000000000000000132 /* IncrementalScanSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000131 /* IncrementalScanSupport.swift */; };
+		DD000000000000000000000134 /* JunkClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000133 /* JunkClassifier.swift */; };
+		DD000000000000000000000136 /* MachOArchitecture.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000135 /* MachOArchitecture.swift */; };
+		DD000000000000000000000138 /* MetadataCollector.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000137 /* MetadataCollector.swift */; };
+		DD000000000000000000000140 /* ProcessSampler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000139 /* ProcessSampler.swift */; };
+		DD000000000000000000000142 /* ResidualCorrelationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000141 /* ResidualCorrelationEngine.swift */; };
+		DD000000000000000000000144 /* ScanCoverageReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000143 /* ScanCoverageReport.swift */; };
+		DD000000000000000000000146 /* ScanGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000145 /* ScanGate.swift */; };
+		DD000000000000000000000148 /* ScanIndexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000147 /* ScanIndexStore.swift */; };
+		DD000000000000000000000150 /* ScanModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000149 /* ScanModels.swift */; };
+		DD000000000000000000000152 /* ScanPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000151 /* ScanPolicy.swift */; };
+		DD000000000000000000000154 /* ScanProgressAggregator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000153 /* ScanProgressAggregator.swift */; };
+		DD000000000000000000000156 /* TraversalPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000155 /* TraversalPolicy.swift */; };
+		DD000000000000000000000158 /* VolumeDiscoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000157 /* VolumeDiscoveryService.swift */; };
 		DD000000000000000000000160 /* CleanupEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000159 /* CleanupEngineTests.swift */; };
 		DD000000000000000000000162 /* CleanupWorkflowRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */; };
 		DD000000000000000000000164 /* DeepScanRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD000000000000000000000163 /* DeepScanRegressionTests.swift */; };
@@ -113,84 +113,84 @@
 
 /* Begin PBXFileReference section */
 		DD000000000000000000000001 /* SalmanMacCleanerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SalmanMacCleanerApp.swift; sourceTree = "<group>"; };
-		DD000000000000000000000003 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
-		DD000000000000000000000005 /* CleanupEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupEngine.swift; sourceTree = "<group>"; };
-		DD000000000000000000000007 /* Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crypto.swift; sourceTree = "<group>"; };
-		DD000000000000000000000009 /* FileUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUtilities.swift; sourceTree = "<group>"; };
-		DD000000000000000000000011 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
-		DD000000000000000000000013 /* PathSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSafety.swift; sourceTree = "<group>"; };
-		DD000000000000000000000015 /* ScanSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanSessionStore.swift; sourceTree = "<group>"; };
-		DD000000000000000000000017 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
-		DD000000000000000000000019 /* SparkleUpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdaterController.swift; sourceTree = "<group>"; };
-		DD000000000000000000000021 /* VersionComparator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionComparator.swift; sourceTree = "<group>"; };
-		DD000000000000000000000023 /* ApplicationInventoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationInventoryService.swift; sourceTree = "<group>"; };
-		DD000000000000000000000025 /* CleanupExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupExecutor.swift; sourceTree = "<group>"; };
-		DD000000000000000000000027 /* CleanupPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupPlanBuilder.swift; sourceTree = "<group>"; };
-		DD000000000000000000000029 /* CleanupSafetyValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupSafetyValidator.swift; sourceTree = "<group>"; };
-		DD000000000000000000000031 /* DeepScanCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanCoordinator.swift; sourceTree = "<group>"; };
-		DD000000000000000000000033 /* DuplicatePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePipeline.swift; sourceTree = "<group>"; };
-		DD000000000000000000000035 /* FileInventoryScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileInventoryScanner.swift; sourceTree = "<group>"; };
-		DD000000000000000000000037 /* IgnoreListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IgnoreListStore.swift; sourceTree = "<group>"; };
-		DD000000000000000000000039 /* IncrementalScanSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalScanSupport.swift; sourceTree = "<group>"; };
-		DD000000000000000000000041 /* JunkClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JunkClassifier.swift; sourceTree = "<group>"; };
-		DD000000000000000000000043 /* MachOArchitecture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachOArchitecture.swift; sourceTree = "<group>"; };
-		DD000000000000000000000045 /* MetadataCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataCollector.swift; sourceTree = "<group>"; };
-		DD000000000000000000000047 /* ProcessSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessSampler.swift; sourceTree = "<group>"; };
-		DD000000000000000000000049 /* ResidualCorrelationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResidualCorrelationEngine.swift; sourceTree = "<group>"; };
-		DD000000000000000000000051 /* ScanCoverageReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCoverageReport.swift; sourceTree = "<group>"; };
-		DD000000000000000000000053 /* ScanGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanGate.swift; sourceTree = "<group>"; };
-		DD000000000000000000000055 /* ScanIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanIndexStore.swift; sourceTree = "<group>"; };
-		DD000000000000000000000057 /* ScanModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModels.swift; sourceTree = "<group>"; };
-		DD000000000000000000000059 /* ScanPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPolicy.swift; sourceTree = "<group>"; };
-		DD000000000000000000000061 /* ScanProgressAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProgressAggregator.swift; sourceTree = "<group>"; };
-		DD000000000000000000000063 /* TraversalPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraversalPolicy.swift; sourceTree = "<group>"; };
-		DD000000000000000000000065 /* VolumeDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeDiscoveryService.swift; sourceTree = "<group>"; };
-		DD000000000000000000000067 /* ActivityHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityHistoryView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000069 /* DeepScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000071 /* FolderAuthorizations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderAuthorizations.swift; sourceTree = "<group>"; };
-		DD000000000000000000000073 /* FolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPicker.swift; sourceTree = "<group>"; };
-		DD000000000000000000000075 /* LargeOldFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeOldFilesView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000077 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
-		DD000000000000000000000079 /* ScanCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCoordinator.swift; sourceTree = "<group>"; };
-		DD000000000000000000000081 /* SmartCareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCareView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000083 /* SystemJunkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000085 /* AppLeftoversView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLeftoversView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000087 /* AppUpdaterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdaterView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000089 /* ApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationsView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000091 /* StorageOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageOverview.swift; sourceTree = "<group>"; };
-		DD000000000000000000000093 /* DeveloperCacheScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperCacheScanner.swift; sourceTree = "<group>"; };
-		DD000000000000000000000095 /* DeveloperCachesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperCachesView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000097 /* DeveloperCachesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperCachesViewModel.swift; sourceTree = "<group>"; };
-		DD000000000000000000000099 /* DuplicateFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFinder.swift; sourceTree = "<group>"; };
-		DD000000000000000000000101 /* DuplicatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000103 /* DuplicatesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesViewModel.swift; sourceTree = "<group>"; };
-		DD000000000000000000000105 /* LargeFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFileScanner.swift; sourceTree = "<group>"; };
-		DD000000000000000000000107 /* LargeFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000109 /* LargeFilesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesViewModel.swift; sourceTree = "<group>"; };
-		DD000000000000000000000111 /* MyClutterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyClutterView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000113 /* MyToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyToolsView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000115 /* PerformanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000117 /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
-		DD000000000000000000000119 /* PermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000121 /* SecurityAuditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityAuditView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000123 /* SpaceLensEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensEngine.swift; sourceTree = "<group>"; };
-		DD000000000000000000000125 /* SpaceLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000127 /* StartupItemsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupItemsView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000129 /* StartupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupManager.swift; sourceTree = "<group>"; };
-		DD000000000000000000000131 /* TrashBinsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashBinsView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000133 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000135 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000137 /* HeroScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroScreenView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000139 /* ResultsWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsWorkspaceView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000141 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000143 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
-		DD000000000000000000000145 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
-		DD000000000000000000000147 /* AccessibilityEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityEnvironment.swift; sourceTree = "<group>"; };
-		DD000000000000000000000149 /* AuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraBackground.swift; sourceTree = "<group>"; };
-		DD000000000000000000000151 /* AuroraTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraTheme.swift; sourceTree = "<group>"; };
-		DD000000000000000000000153 /* GlassComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassComponents.swift; sourceTree = "<group>"; };
-		DD000000000000000000000155 /* ModuleArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleArtwork.swift; sourceTree = "<group>"; };
-		DD000000000000000000000157 /* ModuleCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleCatalog.swift; sourceTree = "<group>"; };
+		DD000000000000000000000003 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000005 /* HeroScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroScreenView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000007 /* ResultsWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultsWorkspaceView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000009 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000011 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
+		DD000000000000000000000013 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000015 /* AccessibilityEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityEnvironment.swift; sourceTree = "<group>"; };
+		DD000000000000000000000017 /* AuroraBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraBackground.swift; sourceTree = "<group>"; };
+		DD000000000000000000000019 /* AuroraTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuroraTheme.swift; sourceTree = "<group>"; };
+		DD000000000000000000000021 /* GlassComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassComponents.swift; sourceTree = "<group>"; };
+		DD000000000000000000000023 /* ModuleArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleArtwork.swift; sourceTree = "<group>"; };
+		DD000000000000000000000025 /* ModuleCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModuleCatalog.swift; sourceTree = "<group>"; };
+		DD000000000000000000000027 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		DD000000000000000000000029 /* CleanupEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupEngine.swift; sourceTree = "<group>"; };
+		DD000000000000000000000031 /* Crypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crypto.swift; sourceTree = "<group>"; };
+		DD000000000000000000000033 /* FileUtilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileUtilities.swift; sourceTree = "<group>"; };
+		DD000000000000000000000035 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
+		DD000000000000000000000037 /* PathSafety.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathSafety.swift; sourceTree = "<group>"; };
+		DD000000000000000000000039 /* ScanSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanSessionStore.swift; sourceTree = "<group>"; };
+		DD000000000000000000000041 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		DD000000000000000000000043 /* SparkleUpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdaterController.swift; sourceTree = "<group>"; };
+		DD000000000000000000000045 /* VersionComparator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VersionComparator.swift; sourceTree = "<group>"; };
+		DD000000000000000000000047 /* ActivityHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityHistoryView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000049 /* DeepScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000051 /* FolderAuthorizations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderAuthorizations.swift; sourceTree = "<group>"; };
+		DD000000000000000000000053 /* FolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPicker.swift; sourceTree = "<group>"; };
+		DD000000000000000000000055 /* LargeOldFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeOldFilesView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000057 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		DD000000000000000000000059 /* ScanCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCoordinator.swift; sourceTree = "<group>"; };
+		DD000000000000000000000061 /* SmartCareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCareView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000063 /* SystemJunkView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemJunkView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000065 /* DeveloperCacheScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperCacheScanner.swift; sourceTree = "<group>"; };
+		DD000000000000000000000067 /* DeveloperCachesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperCachesView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000069 /* DeveloperCachesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperCachesViewModel.swift; sourceTree = "<group>"; };
+		DD000000000000000000000071 /* StartupItemsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupItemsView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000073 /* StartupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupManager.swift; sourceTree = "<group>"; };
+		DD000000000000000000000075 /* SecurityAuditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityAuditView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000077 /* UninstallerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UninstallerView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000079 /* MyClutterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyClutterView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000081 /* LargeFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFileScanner.swift; sourceTree = "<group>"; };
+		DD000000000000000000000083 /* LargeFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000085 /* LargeFilesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeFilesViewModel.swift; sourceTree = "<group>"; };
+		DD000000000000000000000087 /* PermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionService.swift; sourceTree = "<group>"; };
+		DD000000000000000000000089 /* PermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000091 /* MyToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyToolsView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000093 /* StorageOverview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageOverview.swift; sourceTree = "<group>"; };
+		DD000000000000000000000095 /* AppLeftoversView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLeftoversView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000097 /* ApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationsView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000099 /* TrashBinsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrashBinsView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000101 /* PerformanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000103 /* DuplicateFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicateFinder.swift; sourceTree = "<group>"; };
+		DD000000000000000000000105 /* DuplicatesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000107 /* DuplicatesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatesViewModel.swift; sourceTree = "<group>"; };
+		DD000000000000000000000109 /* SpaceLensEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensEngine.swift; sourceTree = "<group>"; };
+		DD000000000000000000000111 /* SpaceLensView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLensView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000113 /* AppUpdaterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdaterView.swift; sourceTree = "<group>"; };
+		DD000000000000000000000115 /* ApplicationInventoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationInventoryService.swift; sourceTree = "<group>"; };
+		DD000000000000000000000117 /* CleanupExecutor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupExecutor.swift; sourceTree = "<group>"; };
+		DD000000000000000000000119 /* CleanupPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupPlanBuilder.swift; sourceTree = "<group>"; };
+		DD000000000000000000000121 /* CleanupSafetyValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupSafetyValidator.swift; sourceTree = "<group>"; };
+		DD000000000000000000000123 /* DeepScanCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanCoordinator.swift; sourceTree = "<group>"; };
+		DD000000000000000000000125 /* DuplicatePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePipeline.swift; sourceTree = "<group>"; };
+		DD000000000000000000000127 /* FileInventoryScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileInventoryScanner.swift; sourceTree = "<group>"; };
+		DD000000000000000000000129 /* IgnoreListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IgnoreListStore.swift; sourceTree = "<group>"; };
+		DD000000000000000000000131 /* IncrementalScanSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncrementalScanSupport.swift; sourceTree = "<group>"; };
+		DD000000000000000000000133 /* JunkClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JunkClassifier.swift; sourceTree = "<group>"; };
+		DD000000000000000000000135 /* MachOArchitecture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachOArchitecture.swift; sourceTree = "<group>"; };
+		DD000000000000000000000137 /* MetadataCollector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataCollector.swift; sourceTree = "<group>"; };
+		DD000000000000000000000139 /* ProcessSampler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessSampler.swift; sourceTree = "<group>"; };
+		DD000000000000000000000141 /* ResidualCorrelationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResidualCorrelationEngine.swift; sourceTree = "<group>"; };
+		DD000000000000000000000143 /* ScanCoverageReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanCoverageReport.swift; sourceTree = "<group>"; };
+		DD000000000000000000000145 /* ScanGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanGate.swift; sourceTree = "<group>"; };
+		DD000000000000000000000147 /* ScanIndexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanIndexStore.swift; sourceTree = "<group>"; };
+		DD000000000000000000000149 /* ScanModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanModels.swift; sourceTree = "<group>"; };
+		DD000000000000000000000151 /* ScanPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPolicy.swift; sourceTree = "<group>"; };
+		DD000000000000000000000153 /* ScanProgressAggregator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanProgressAggregator.swift; sourceTree = "<group>"; };
+		DD000000000000000000000155 /* TraversalPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraversalPolicy.swift; sourceTree = "<group>"; };
+		DD000000000000000000000157 /* VolumeDiscoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeDiscoveryService.swift; sourceTree = "<group>"; };
 		DD000000000000000000000159 /* CleanupEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupEngineTests.swift; sourceTree = "<group>"; };
 		DD000000000000000000000161 /* CleanupWorkflowRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanupWorkflowRegressionTests.swift; sourceTree = "<group>"; };
 		DD000000000000000000000163 /* DeepScanRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeepScanRegressionTests.swift; sourceTree = "<group>"; };
@@ -215,7 +215,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DD000000000000000000000246 /* Sparkle in Frameworks */,
+				DD000000000000000000000215 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,8 +248,8 @@
 				DD000000000000000000000183 /* Localizable.strings */,
 				DD000000000000000000000193 /* Core */,
 				DD000000000000000000000194 /* Engine */,
-				DD000000000000000000000220 /* Features */,
-				DD000000000000000000000243 /* UI */,
+				DD000000000000000000000211 /* Features */,
+				DD000000000000000000000213 /* UI */,
 			);
 			path = SalmanMacCleaner;
 			sourceTree = "<group>";
@@ -284,16 +284,16 @@
 		DD000000000000000000000193 /* Core */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000003 /* AppState.swift */,
-				DD000000000000000000000005 /* CleanupEngine.swift */,
-				DD000000000000000000000007 /* Crypto.swift */,
-				DD000000000000000000000009 /* FileUtilities.swift */,
-				DD000000000000000000000011 /* HistoryStore.swift */,
-				DD000000000000000000000013 /* PathSafety.swift */,
-				DD000000000000000000000015 /* ScanSessionStore.swift */,
-				DD000000000000000000000017 /* SettingsStore.swift */,
-				DD000000000000000000000019 /* SparkleUpdaterController.swift */,
-				DD000000000000000000000021 /* VersionComparator.swift */,
+				DD000000000000000000000027 /* AppState.swift */,
+				DD000000000000000000000029 /* CleanupEngine.swift */,
+				DD000000000000000000000031 /* Crypto.swift */,
+				DD000000000000000000000033 /* FileUtilities.swift */,
+				DD000000000000000000000035 /* HistoryStore.swift */,
+				DD000000000000000000000037 /* PathSafety.swift */,
+				DD000000000000000000000039 /* ScanSessionStore.swift */,
+				DD000000000000000000000041 /* SettingsStore.swift */,
+				DD000000000000000000000043 /* SparkleUpdaterController.swift */,
+				DD000000000000000000000045 /* VersionComparator.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -301,224 +301,224 @@
 		DD000000000000000000000194 /* Engine */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000023 /* ApplicationInventoryService.swift */,
-				DD000000000000000000000025 /* CleanupExecutor.swift */,
-				DD000000000000000000000027 /* CleanupPlanBuilder.swift */,
-				DD000000000000000000000029 /* CleanupSafetyValidator.swift */,
-				DD000000000000000000000031 /* DeepScanCoordinator.swift */,
-				DD000000000000000000000033 /* DuplicatePipeline.swift */,
-				DD000000000000000000000035 /* FileInventoryScanner.swift */,
-				DD000000000000000000000037 /* IgnoreListStore.swift */,
-				DD000000000000000000000039 /* IncrementalScanSupport.swift */,
-				DD000000000000000000000041 /* JunkClassifier.swift */,
-				DD000000000000000000000043 /* MachOArchitecture.swift */,
-				DD000000000000000000000045 /* MetadataCollector.swift */,
-				DD000000000000000000000047 /* ProcessSampler.swift */,
-				DD000000000000000000000049 /* ResidualCorrelationEngine.swift */,
-				DD000000000000000000000051 /* ScanCoverageReport.swift */,
-				DD000000000000000000000053 /* ScanGate.swift */,
-				DD000000000000000000000055 /* ScanIndexStore.swift */,
-				DD000000000000000000000057 /* ScanModels.swift */,
-				DD000000000000000000000059 /* ScanPolicy.swift */,
-				DD000000000000000000000061 /* ScanProgressAggregator.swift */,
-				DD000000000000000000000063 /* TraversalPolicy.swift */,
-				DD000000000000000000000065 /* VolumeDiscoveryService.swift */,
+				DD000000000000000000000115 /* ApplicationInventoryService.swift */,
+				DD000000000000000000000117 /* CleanupExecutor.swift */,
+				DD000000000000000000000119 /* CleanupPlanBuilder.swift */,
+				DD000000000000000000000121 /* CleanupSafetyValidator.swift */,
+				DD000000000000000000000123 /* DeepScanCoordinator.swift */,
+				DD000000000000000000000125 /* DuplicatePipeline.swift */,
+				DD000000000000000000000127 /* FileInventoryScanner.swift */,
+				DD000000000000000000000129 /* IgnoreListStore.swift */,
+				DD000000000000000000000131 /* IncrementalScanSupport.swift */,
+				DD000000000000000000000133 /* JunkClassifier.swift */,
+				DD000000000000000000000135 /* MachOArchitecture.swift */,
+				DD000000000000000000000137 /* MetadataCollector.swift */,
+				DD000000000000000000000139 /* ProcessSampler.swift */,
+				DD000000000000000000000141 /* ResidualCorrelationEngine.swift */,
+				DD000000000000000000000143 /* ScanCoverageReport.swift */,
+				DD000000000000000000000145 /* ScanGate.swift */,
+				DD000000000000000000000147 /* ScanIndexStore.swift */,
+				DD000000000000000000000149 /* ScanModels.swift */,
+				DD000000000000000000000151 /* ScanPolicy.swift */,
+				DD000000000000000000000153 /* ScanProgressAggregator.swift */,
+				DD000000000000000000000155 /* TraversalPolicy.swift */,
+				DD000000000000000000000157 /* VolumeDiscoveryService.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000220 /* Features */ = {
+		DD000000000000000000000211 /* Features */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000067 /* ActivityHistoryView.swift */,
-				DD000000000000000000000069 /* DeepScanView.swift */,
-				DD000000000000000000000071 /* FolderAuthorizations.swift */,
-				DD000000000000000000000073 /* FolderPicker.swift */,
-				DD000000000000000000000075 /* LargeOldFilesView.swift */,
-				DD000000000000000000000077 /* Models.swift */,
-				DD000000000000000000000079 /* ScanCoordinator.swift */,
-				DD000000000000000000000081 /* SmartCareView.swift */,
-				DD000000000000000000000083 /* SystemJunkView.swift */,
-				DD000000000000000000000195 /* AppLeftovers */,
-				DD000000000000000000000196 /* AppUpdater */,
-				DD000000000000000000000197 /* Applications */,
-				DD000000000000000000000198 /* Dashboard */,
-				DD000000000000000000000199 /* DeveloperCaches */,
-				DD000000000000000000000202 /* Duplicates */,
-				DD000000000000000000000205 /* LargeFiles */,
-				DD000000000000000000000208 /* MyClutter */,
-				DD000000000000000000000209 /* MyTools */,
-				DD000000000000000000000210 /* Performance */,
-				DD000000000000000000000211 /* Permissions */,
-				DD000000000000000000000213 /* SecurityAudit */,
-				DD000000000000000000000214 /* SpaceLens */,
-				DD000000000000000000000216 /* StartupItems */,
-				DD000000000000000000000218 /* TrashBins */,
-				DD000000000000000000000219 /* Uninstaller */,
+				DD000000000000000000000047 /* ActivityHistoryView.swift */,
+				DD000000000000000000000049 /* DeepScanView.swift */,
+				DD000000000000000000000051 /* FolderAuthorizations.swift */,
+				DD000000000000000000000053 /* FolderPicker.swift */,
+				DD000000000000000000000055 /* LargeOldFilesView.swift */,
+				DD000000000000000000000057 /* Models.swift */,
+				DD000000000000000000000059 /* ScanCoordinator.swift */,
+				DD000000000000000000000061 /* SmartCareView.swift */,
+				DD000000000000000000000063 /* SystemJunkView.swift */,
+				DD000000000000000000000204 /* AppLeftovers */,
+				DD000000000000000000000210 /* AppUpdater */,
+				DD000000000000000000000205 /* Applications */,
+				DD000000000000000000000203 /* Dashboard */,
+				DD000000000000000000000195 /* DeveloperCaches */,
+				DD000000000000000000000208 /* Duplicates */,
+				DD000000000000000000000200 /* LargeFiles */,
+				DD000000000000000000000199 /* MyClutter */,
+				DD000000000000000000000202 /* MyTools */,
+				DD000000000000000000000207 /* Performance */,
+				DD000000000000000000000201 /* Permissions */,
+				DD000000000000000000000197 /* SecurityAudit */,
+				DD000000000000000000000209 /* SpaceLens */,
+				DD000000000000000000000196 /* StartupItems */,
+				DD000000000000000000000206 /* TrashBins */,
+				DD000000000000000000000198 /* Uninstaller */,
 			);
 			path = Features;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000221 /* AppLeftovers */ = {
+		DD000000000000000000000204 /* AppLeftovers */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000085 /* AppLeftoversView.swift */,
+				DD000000000000000000000095 /* AppLeftoversView.swift */,
 			);
 			path = AppLeftovers;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000222 /* AppUpdater */ = {
+		DD000000000000000000000210 /* AppUpdater */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000087 /* AppUpdaterView.swift */,
+				DD000000000000000000000113 /* AppUpdaterView.swift */,
 			);
 			path = AppUpdater;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000223 /* Applications */ = {
+		DD000000000000000000000205 /* Applications */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000089 /* ApplicationsView.swift */,
+				DD000000000000000000000097 /* ApplicationsView.swift */,
 			);
 			path = Applications;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000224 /* Dashboard */ = {
+		DD000000000000000000000203 /* Dashboard */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000091 /* StorageOverview.swift */,
+				DD000000000000000000000093 /* StorageOverview.swift */,
 			);
 			path = Dashboard;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000225 /* DeveloperCaches */ = {
+		DD000000000000000000000195 /* DeveloperCaches */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000093 /* DeveloperCacheScanner.swift */,
-				DD000000000000000000000095 /* DeveloperCachesView.swift */,
-				DD000000000000000000000097 /* DeveloperCachesViewModel.swift */,
+				DD000000000000000000000065 /* DeveloperCacheScanner.swift */,
+				DD000000000000000000000067 /* DeveloperCachesView.swift */,
+				DD000000000000000000000069 /* DeveloperCachesViewModel.swift */,
 			);
 			path = DeveloperCaches;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000226 /* Duplicates */ = {
+		DD000000000000000000000208 /* Duplicates */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000099 /* DuplicateFinder.swift */,
-				DD000000000000000000000101 /* DuplicatesView.swift */,
-				DD000000000000000000000103 /* DuplicatesViewModel.swift */,
+				DD000000000000000000000103 /* DuplicateFinder.swift */,
+				DD000000000000000000000105 /* DuplicatesView.swift */,
+				DD000000000000000000000107 /* DuplicatesViewModel.swift */,
 			);
 			path = Duplicates;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000227 /* LargeFiles */ = {
+		DD000000000000000000000200 /* LargeFiles */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000105 /* LargeFileScanner.swift */,
-				DD000000000000000000000107 /* LargeFilesView.swift */,
-				DD000000000000000000000109 /* LargeFilesViewModel.swift */,
+				DD000000000000000000000081 /* LargeFileScanner.swift */,
+				DD000000000000000000000083 /* LargeFilesView.swift */,
+				DD000000000000000000000085 /* LargeFilesViewModel.swift */,
 			);
 			path = LargeFiles;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000228 /* MyClutter */ = {
+		DD000000000000000000000199 /* MyClutter */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000111 /* MyClutterView.swift */,
+				DD000000000000000000000079 /* MyClutterView.swift */,
 			);
 			path = MyClutter;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000229 /* MyTools */ = {
+		DD000000000000000000000202 /* MyTools */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000113 /* MyToolsView.swift */,
+				DD000000000000000000000091 /* MyToolsView.swift */,
 			);
 			path = MyTools;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000230 /* Performance */ = {
+		DD000000000000000000000207 /* Performance */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000115 /* PerformanceView.swift */,
+				DD000000000000000000000101 /* PerformanceView.swift */,
 			);
 			path = Performance;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000231 /* Permissions */ = {
+		DD000000000000000000000201 /* Permissions */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000117 /* PermissionService.swift */,
-				DD000000000000000000000119 /* PermissionsView.swift */,
+				DD000000000000000000000087 /* PermissionService.swift */,
+				DD000000000000000000000089 /* PermissionsView.swift */,
 			);
 			path = Permissions;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000232 /* SecurityAudit */ = {
+		DD000000000000000000000197 /* SecurityAudit */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000121 /* SecurityAuditView.swift */,
+				DD000000000000000000000075 /* SecurityAuditView.swift */,
 			);
 			path = SecurityAudit;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000233 /* SpaceLens */ = {
+		DD000000000000000000000209 /* SpaceLens */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000123 /* SpaceLensEngine.swift */,
-				DD000000000000000000000125 /* SpaceLensView.swift */,
+				DD000000000000000000000109 /* SpaceLensEngine.swift */,
+				DD000000000000000000000111 /* SpaceLensView.swift */,
 			);
 			path = SpaceLens;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000234 /* StartupItems */ = {
+		DD000000000000000000000196 /* StartupItems */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000127 /* StartupItemsView.swift */,
-				DD000000000000000000000129 /* StartupManager.swift */,
+				DD000000000000000000000071 /* StartupItemsView.swift */,
+				DD000000000000000000000073 /* StartupManager.swift */,
 			);
 			path = StartupItems;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000235 /* TrashBins */ = {
+		DD000000000000000000000206 /* TrashBins */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000131 /* TrashBinsView.swift */,
+				DD000000000000000000000099 /* TrashBinsView.swift */,
 			);
 			path = TrashBins;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000236 /* Uninstaller */ = {
+		DD000000000000000000000198 /* Uninstaller */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000133 /* UninstallerView.swift */,
+				DD000000000000000000000077 /* UninstallerView.swift */,
 			);
 			path = Uninstaller;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000243 /* UI */ = {
+		DD000000000000000000000213 /* UI */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000135 /* ContentView.swift */,
-				DD000000000000000000000137 /* HeroScreenView.swift */,
-				DD000000000000000000000139 /* ResultsWorkspaceView.swift */,
-				DD000000000000000000000141 /* SettingsView.swift */,
-				DD000000000000000000000143 /* SharedComponents.swift */,
-				DD000000000000000000000145 /* SidebarView.swift */,
-				DD000000000000000000000237 /* DesignSystem */,
+				DD000000000000000000000003 /* ContentView.swift */,
+				DD000000000000000000000005 /* HeroScreenView.swift */,
+				DD000000000000000000000007 /* ResultsWorkspaceView.swift */,
+				DD000000000000000000000009 /* SettingsView.swift */,
+				DD000000000000000000000011 /* SharedComponents.swift */,
+				DD000000000000000000000013 /* SidebarView.swift */,
+				DD000000000000000000000212 /* DesignSystem */,
 			);
 			path = UI;
 			sourceTree = "<group>";
 		};
-		DD000000000000000000000244 /* DesignSystem */ = {
+		DD000000000000000000000212 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
-				DD000000000000000000000147 /* AccessibilityEnvironment.swift */,
-				DD000000000000000000000149 /* AuroraBackground.swift */,
-				DD000000000000000000000151 /* AuroraTheme.swift */,
-				DD000000000000000000000153 /* GlassComponents.swift */,
-				DD000000000000000000000155 /* ModuleArtwork.swift */,
-				DD000000000000000000000157 /* ModuleCatalog.swift */,
+				DD000000000000000000000015 /* AccessibilityEnvironment.swift */,
+				DD000000000000000000000017 /* AuroraBackground.swift */,
+				DD000000000000000000000019 /* AuroraTheme.swift */,
+				DD000000000000000000000021 /* GlassComponents.swift */,
+				DD000000000000000000000023 /* ModuleArtwork.swift */,
+				DD000000000000000000000025 /* ModuleCatalog.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -540,7 +540,7 @@
 			);
 			name = SalmanMacCleaner;
 			packageProductDependencies = (
-				DD000000000000000000000246 /* Sparkle */,
+				DD000000000000000000000215 /* Sparkle */,
 			);
 			productName = SalmanMacCleaner;
 			productReference = DD000000000000000000000187 /* SalmanMacCleaner.app */;
@@ -593,7 +593,7 @@
 			);
 			mainGroup = DD000000000000000000000189;
 			packageReferences = (
-				DD000000000000000000000245 /* XCRemoteSwiftPackageReference "Sparkle" */,
+				DD000000000000000000000214 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = DD000000000000000000000192 /* Products */;
 			projectDirPath = "";
@@ -630,84 +630,84 @@
 			buildActionMask = 2147483647;
 			files = (
 				DD000000000000000000000002 /* SalmanMacCleanerApp.swift in Sources */,
-				DD000000000000000000000004 /* AppState.swift in Sources */,
-				DD000000000000000000000006 /* CleanupEngine.swift in Sources */,
-				DD000000000000000000000008 /* Crypto.swift in Sources */,
-				DD000000000000000000000010 /* FileUtilities.swift in Sources */,
-				DD000000000000000000000012 /* HistoryStore.swift in Sources */,
-				DD000000000000000000000014 /* PathSafety.swift in Sources */,
-				DD000000000000000000000016 /* ScanSessionStore.swift in Sources */,
-				DD000000000000000000000018 /* SettingsStore.swift in Sources */,
-				DD000000000000000000000020 /* SparkleUpdaterController.swift in Sources */,
-				DD000000000000000000000022 /* VersionComparator.swift in Sources */,
-				DD000000000000000000000024 /* ApplicationInventoryService.swift in Sources */,
-				DD000000000000000000000026 /* CleanupExecutor.swift in Sources */,
-				DD000000000000000000000028 /* CleanupPlanBuilder.swift in Sources */,
-				DD000000000000000000000030 /* CleanupSafetyValidator.swift in Sources */,
-				DD000000000000000000000032 /* DeepScanCoordinator.swift in Sources */,
-				DD000000000000000000000034 /* DuplicatePipeline.swift in Sources */,
-				DD000000000000000000000036 /* FileInventoryScanner.swift in Sources */,
-				DD000000000000000000000038 /* IgnoreListStore.swift in Sources */,
-				DD000000000000000000000040 /* IncrementalScanSupport.swift in Sources */,
-				DD000000000000000000000042 /* JunkClassifier.swift in Sources */,
-				DD000000000000000000000044 /* MachOArchitecture.swift in Sources */,
-				DD000000000000000000000046 /* MetadataCollector.swift in Sources */,
-				DD000000000000000000000048 /* ProcessSampler.swift in Sources */,
-				DD000000000000000000000050 /* ResidualCorrelationEngine.swift in Sources */,
-				DD000000000000000000000052 /* ScanCoverageReport.swift in Sources */,
-				DD000000000000000000000054 /* ScanGate.swift in Sources */,
-				DD000000000000000000000056 /* ScanIndexStore.swift in Sources */,
-				DD000000000000000000000058 /* ScanModels.swift in Sources */,
-				DD000000000000000000000060 /* ScanPolicy.swift in Sources */,
-				DD000000000000000000000062 /* ScanProgressAggregator.swift in Sources */,
-				DD000000000000000000000064 /* TraversalPolicy.swift in Sources */,
-				DD000000000000000000000066 /* VolumeDiscoveryService.swift in Sources */,
-				DD000000000000000000000068 /* ActivityHistoryView.swift in Sources */,
-				DD000000000000000000000070 /* DeepScanView.swift in Sources */,
-				DD000000000000000000000072 /* FolderAuthorizations.swift in Sources */,
-				DD000000000000000000000074 /* FolderPicker.swift in Sources */,
-				DD000000000000000000000076 /* LargeOldFilesView.swift in Sources */,
-				DD000000000000000000000078 /* Models.swift in Sources */,
-				DD000000000000000000000080 /* ScanCoordinator.swift in Sources */,
-				DD000000000000000000000082 /* SmartCareView.swift in Sources */,
-				DD000000000000000000000084 /* SystemJunkView.swift in Sources */,
-				DD000000000000000000000086 /* AppLeftoversView.swift in Sources */,
-				DD000000000000000000000088 /* AppUpdaterView.swift in Sources */,
-				DD000000000000000000000090 /* ApplicationsView.swift in Sources */,
-				DD000000000000000000000092 /* StorageOverview.swift in Sources */,
-				DD000000000000000000000094 /* DeveloperCacheScanner.swift in Sources */,
-				DD000000000000000000000096 /* DeveloperCachesView.swift in Sources */,
-				DD000000000000000000000098 /* DeveloperCachesViewModel.swift in Sources */,
-				DD000000000000000000000100 /* DuplicateFinder.swift in Sources */,
-				DD000000000000000000000102 /* DuplicatesView.swift in Sources */,
-				DD000000000000000000000104 /* DuplicatesViewModel.swift in Sources */,
-				DD000000000000000000000106 /* LargeFileScanner.swift in Sources */,
-				DD000000000000000000000108 /* LargeFilesView.swift in Sources */,
-				DD000000000000000000000110 /* LargeFilesViewModel.swift in Sources */,
-				DD000000000000000000000112 /* MyClutterView.swift in Sources */,
-				DD000000000000000000000114 /* MyToolsView.swift in Sources */,
-				DD000000000000000000000116 /* PerformanceView.swift in Sources */,
-				DD000000000000000000000118 /* PermissionService.swift in Sources */,
-				DD000000000000000000000120 /* PermissionsView.swift in Sources */,
-				DD000000000000000000000122 /* SecurityAuditView.swift in Sources */,
-				DD000000000000000000000124 /* SpaceLensEngine.swift in Sources */,
-				DD000000000000000000000126 /* SpaceLensView.swift in Sources */,
-				DD000000000000000000000128 /* StartupItemsView.swift in Sources */,
-				DD000000000000000000000130 /* StartupManager.swift in Sources */,
-				DD000000000000000000000132 /* TrashBinsView.swift in Sources */,
-				DD000000000000000000000134 /* UninstallerView.swift in Sources */,
-				DD000000000000000000000136 /* ContentView.swift in Sources */,
-				DD000000000000000000000138 /* HeroScreenView.swift in Sources */,
-				DD000000000000000000000140 /* ResultsWorkspaceView.swift in Sources */,
-				DD000000000000000000000142 /* SettingsView.swift in Sources */,
-				DD000000000000000000000144 /* SharedComponents.swift in Sources */,
-				DD000000000000000000000146 /* SidebarView.swift in Sources */,
-				DD000000000000000000000148 /* AccessibilityEnvironment.swift in Sources */,
-				DD000000000000000000000150 /* AuroraBackground.swift in Sources */,
-				DD000000000000000000000152 /* AuroraTheme.swift in Sources */,
-				DD000000000000000000000154 /* GlassComponents.swift in Sources */,
-				DD000000000000000000000156 /* ModuleArtwork.swift in Sources */,
-				DD000000000000000000000158 /* ModuleCatalog.swift in Sources */,
+				DD000000000000000000000004 /* ContentView.swift in Sources */,
+				DD000000000000000000000006 /* HeroScreenView.swift in Sources */,
+				DD000000000000000000000008 /* ResultsWorkspaceView.swift in Sources */,
+				DD000000000000000000000010 /* SettingsView.swift in Sources */,
+				DD000000000000000000000012 /* SharedComponents.swift in Sources */,
+				DD000000000000000000000014 /* SidebarView.swift in Sources */,
+				DD000000000000000000000016 /* AccessibilityEnvironment.swift in Sources */,
+				DD000000000000000000000018 /* AuroraBackground.swift in Sources */,
+				DD000000000000000000000020 /* AuroraTheme.swift in Sources */,
+				DD000000000000000000000022 /* GlassComponents.swift in Sources */,
+				DD000000000000000000000024 /* ModuleArtwork.swift in Sources */,
+				DD000000000000000000000026 /* ModuleCatalog.swift in Sources */,
+				DD000000000000000000000028 /* AppState.swift in Sources */,
+				DD000000000000000000000030 /* CleanupEngine.swift in Sources */,
+				DD000000000000000000000032 /* Crypto.swift in Sources */,
+				DD000000000000000000000034 /* FileUtilities.swift in Sources */,
+				DD000000000000000000000036 /* HistoryStore.swift in Sources */,
+				DD000000000000000000000038 /* PathSafety.swift in Sources */,
+				DD000000000000000000000040 /* ScanSessionStore.swift in Sources */,
+				DD000000000000000000000042 /* SettingsStore.swift in Sources */,
+				DD000000000000000000000044 /* SparkleUpdaterController.swift in Sources */,
+				DD000000000000000000000046 /* VersionComparator.swift in Sources */,
+				DD000000000000000000000048 /* ActivityHistoryView.swift in Sources */,
+				DD000000000000000000000050 /* DeepScanView.swift in Sources */,
+				DD000000000000000000000052 /* FolderAuthorizations.swift in Sources */,
+				DD000000000000000000000054 /* FolderPicker.swift in Sources */,
+				DD000000000000000000000056 /* LargeOldFilesView.swift in Sources */,
+				DD000000000000000000000058 /* Models.swift in Sources */,
+				DD000000000000000000000060 /* ScanCoordinator.swift in Sources */,
+				DD000000000000000000000062 /* SmartCareView.swift in Sources */,
+				DD000000000000000000000064 /* SystemJunkView.swift in Sources */,
+				DD000000000000000000000066 /* DeveloperCacheScanner.swift in Sources */,
+				DD000000000000000000000068 /* DeveloperCachesView.swift in Sources */,
+				DD000000000000000000000070 /* DeveloperCachesViewModel.swift in Sources */,
+				DD000000000000000000000072 /* StartupItemsView.swift in Sources */,
+				DD000000000000000000000074 /* StartupManager.swift in Sources */,
+				DD000000000000000000000076 /* SecurityAuditView.swift in Sources */,
+				DD000000000000000000000078 /* UninstallerView.swift in Sources */,
+				DD000000000000000000000080 /* MyClutterView.swift in Sources */,
+				DD000000000000000000000082 /* LargeFileScanner.swift in Sources */,
+				DD000000000000000000000084 /* LargeFilesView.swift in Sources */,
+				DD000000000000000000000086 /* LargeFilesViewModel.swift in Sources */,
+				DD000000000000000000000088 /* PermissionService.swift in Sources */,
+				DD000000000000000000000090 /* PermissionsView.swift in Sources */,
+				DD000000000000000000000092 /* MyToolsView.swift in Sources */,
+				DD000000000000000000000094 /* StorageOverview.swift in Sources */,
+				DD000000000000000000000096 /* AppLeftoversView.swift in Sources */,
+				DD000000000000000000000098 /* ApplicationsView.swift in Sources */,
+				DD000000000000000000000100 /* TrashBinsView.swift in Sources */,
+				DD000000000000000000000102 /* PerformanceView.swift in Sources */,
+				DD000000000000000000000104 /* DuplicateFinder.swift in Sources */,
+				DD000000000000000000000106 /* DuplicatesView.swift in Sources */,
+				DD000000000000000000000108 /* DuplicatesViewModel.swift in Sources */,
+				DD000000000000000000000110 /* SpaceLensEngine.swift in Sources */,
+				DD000000000000000000000112 /* SpaceLensView.swift in Sources */,
+				DD000000000000000000000114 /* AppUpdaterView.swift in Sources */,
+				DD000000000000000000000116 /* ApplicationInventoryService.swift in Sources */,
+				DD000000000000000000000118 /* CleanupExecutor.swift in Sources */,
+				DD000000000000000000000120 /* CleanupPlanBuilder.swift in Sources */,
+				DD000000000000000000000122 /* CleanupSafetyValidator.swift in Sources */,
+				DD000000000000000000000124 /* DeepScanCoordinator.swift in Sources */,
+				DD000000000000000000000126 /* DuplicatePipeline.swift in Sources */,
+				DD000000000000000000000128 /* FileInventoryScanner.swift in Sources */,
+				DD000000000000000000000130 /* IgnoreListStore.swift in Sources */,
+				DD000000000000000000000132 /* IncrementalScanSupport.swift in Sources */,
+				DD000000000000000000000134 /* JunkClassifier.swift in Sources */,
+				DD000000000000000000000136 /* MachOArchitecture.swift in Sources */,
+				DD000000000000000000000138 /* MetadataCollector.swift in Sources */,
+				DD000000000000000000000140 /* ProcessSampler.swift in Sources */,
+				DD000000000000000000000142 /* ResidualCorrelationEngine.swift in Sources */,
+				DD000000000000000000000144 /* ScanCoverageReport.swift in Sources */,
+				DD000000000000000000000146 /* ScanGate.swift in Sources */,
+				DD000000000000000000000148 /* ScanIndexStore.swift in Sources */,
+				DD000000000000000000000150 /* ScanModels.swift in Sources */,
+				DD000000000000000000000152 /* ScanPolicy.swift in Sources */,
+				DD000000000000000000000154 /* ScanProgressAggregator.swift in Sources */,
+				DD000000000000000000000156 /* TraversalPolicy.swift in Sources */,
+				DD000000000000000000000158 /* VolumeDiscoveryService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

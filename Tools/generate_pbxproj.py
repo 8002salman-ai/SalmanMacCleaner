@@ -106,7 +106,11 @@ def build_pbxproj(app_files: list[str], test_files: list[str]) -> str:
             rest = rel[len(rel_dir):].lstrip("/")
             if "/" in rest:
                 sub = rest.split("/")[0]
-                subdirs.setdefault(sub, next_id(counter))
+                # Use the same stable path-derived ID as group_entry.  The
+                # previous counter-based ID made nested groups collide with
+                # unrelated groups and left Xcode looking for files at the
+                # repository root instead of inside SalmanMacCleaner/.
+                subdirs.setdefault(sub, group_id(rel_dir.rstrip("/") + "/" + sub))
             else:
                 children.append(f'{file_refs[rel]} /* {os.path.basename(rel)} */')
         for sub, gid in sorted(subdirs.items()):

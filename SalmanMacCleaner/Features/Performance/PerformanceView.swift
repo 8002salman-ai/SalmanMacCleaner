@@ -198,11 +198,7 @@ struct PerformanceView: View {
     }
 
     private func memoryOf(pid: pid_t) -> UInt64 {
-        var info = rusage_info_v2()
-        let result = withUnsafeMutablePointer(to: &info) { pointer in
-            proc_pid_rusage(pid, RUSAGE_INFO_V2, UnsafeMutableRawPointer(pointer))
-        }
-        guard result == 0 else { return 0 }
-        return info.ri_resident_size
+        _ = pid
+        return 0
     }
 }

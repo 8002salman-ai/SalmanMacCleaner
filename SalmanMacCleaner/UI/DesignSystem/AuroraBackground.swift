@@ -142,14 +142,14 @@ private struct StaticAuroraBlobs: View {
 #if compiler(>=6.2)
 @available(macOS 26.0, *)
 public extension View {
-    func auroraNativeGlass(_ style: GlassEffectContainer.Style = .regular) -> some View {
-        glassEffect(style)
+    func auroraNativeGlass() -> some View {
+        glassEffect()
     }
 
     /// Extends the Aurora background into the sidebar for the macOS 26
     /// sidebar/content transition.
     func auroraBackgroundExtension() -> some View {
-        backgroundExtensionEffect(.background)
+        backgroundExtensionEffect(isEnabled: true)
     }
 }
 #endif

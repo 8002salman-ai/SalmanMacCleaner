@@ -90,7 +90,7 @@ public final class CleanupEngine: ObservableObject {
     /// True when any application whose bundle path equals `path` (or a parent
     /// bundle containing it) is currently running. The uninstaller refuses to
     /// remove running apps.
-    public static func isAppRunning(bundlePath path: String) -> Bool {
+    public nonisolated static func isAppRunning(bundlePath path: String) -> Bool {
         guard PathSafety.isAppBundle(path) else { return false }
         let runningURLs = NSWorkspace.shared.runningApplications
             .compactMap { $0.bundleURL?.standardizedFileURL.path }

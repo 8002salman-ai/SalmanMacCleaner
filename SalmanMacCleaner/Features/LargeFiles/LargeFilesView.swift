@@ -26,7 +26,7 @@ struct LargeFilesView: View {
                 .buttonStyle(.borderedProminent)
 
                 if !viewModel.roots.isEmpty {
-                    Text(viewModel.roots.joined(separator: ", "))
+                    Text(viewModel.roots.map(\.path).joined(separator: ", "))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

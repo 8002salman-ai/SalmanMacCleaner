@@ -52,7 +52,7 @@ public struct SystemTrashMover: TrashMover {
 
 // MARK: - Result
 
-public struct ExecutedCleanupResult: Equatable {
+public struct ExecutedCleanupResult {
 
     /// Planned items successfully moved to the Trash.
     public var moved: [String]

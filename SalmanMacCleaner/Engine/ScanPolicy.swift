@@ -109,7 +109,7 @@ public struct ResolvedScanPlan: Equatable {
         self.includePackageContents = includePackageContents
         self.hashDuplicates = hashDuplicates
         self.minFileSize = minFileSize
-        self.minFileAgeDays = minFileAge
+        self.minFileAgeDays = minFileAgeDays
         self.collectApps = collectApps
         self.collectLeftovers = collectLeftovers
         self.collectDuplicates = collectDuplicates

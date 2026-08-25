@@ -44,14 +44,14 @@ public final class AppState: ObservableObject {
     /// The most recently finished scan outcome (for the results workspace).
     @Published public var lastOutcome: ScanOutcome?
 
-    public init(settings: SettingsStore = SettingsStore(),
-                sessionStore: ScanSessionStore = ScanSessionStore(),
-                ignoreList: IgnoreListStore = IgnoreListStore(),
-                history: HistoryStore = HistoryStore()) {
-        self.settings = settings
-        self.sessionStore = sessionStore
-        self.ignoreList = ignoreList
-        self.history = history
+    public init(settings: SettingsStore? = nil,
+                sessionStore: ScanSessionStore? = nil,
+                ignoreList: IgnoreListStore? = nil,
+                history: HistoryStore? = nil) {
+        self.settings = settings ?? SettingsStore()
+        self.sessionStore = sessionStore ?? ScanSessionStore()
+        self.ignoreList = ignoreList ?? IgnoreListStore()
+        self.history = history ?? HistoryStore()
     }
 
     // MARK: - Activity control

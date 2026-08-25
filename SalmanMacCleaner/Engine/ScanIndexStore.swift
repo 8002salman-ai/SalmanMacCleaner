@@ -10,6 +10,8 @@
 import Foundation
 import SQLite3
 
+private let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
 public enum SQLiteError: LocalizedError, Equatable {
     case openFailed(String)
     case prepareFailed(String)

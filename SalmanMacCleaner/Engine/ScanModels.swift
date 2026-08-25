@@ -127,7 +127,7 @@ public struct ScanScope: Codable, Equatable {
         self.includePackageContents = includePackageContents
         self.hashDuplicates = hashDuplicates
         self.minFileSize = minFileSize
-        self.minFileAgeDays = minFileAge
+        self.minFileAgeDays = minFileAgeDays
         self.categories = categories
         self.inventoryOnly = inventoryOnly
     }

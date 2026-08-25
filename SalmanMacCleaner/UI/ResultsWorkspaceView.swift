@@ -204,7 +204,7 @@ public final class ResultsWorkspaceModel: ObservableObject {
 
         // Evict from the index too, so a reload cannot bring them back.
         if let scanID = outcome?.scanID {
-            coordinator.indexStore.deleteRecords(scanID: scanID, paths: Array(moved))
+            Task { await coordinator.indexStore.deleteRecords(scanID: scanID, paths: Array(moved)) }
         }
     }
 }

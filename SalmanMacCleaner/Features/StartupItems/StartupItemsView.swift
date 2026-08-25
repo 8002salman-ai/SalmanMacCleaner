@@ -107,7 +107,7 @@ struct StartupItemsView: View {
                         if item.isBroken {
                             StatusPill("startup.broken", kind: .warning)
                         }
-                        if let isEnabled {
+                        if let isEnabled = item.isEnabled {
                             Text(isEnabled ? "startup.enabled" : "startup.disabled")
                                 .font(.caption2)
                                 .foregroundStyle(isEnabled ? AuroraPalette.success : AuroraPalette.amber)

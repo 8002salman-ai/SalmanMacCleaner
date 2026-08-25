@@ -112,7 +112,7 @@ public final class PermissionService: ObservableObject {
         snapshot = PermissionSnapshot(
             fullDiskAccess: status,
             lastCheck: Date(),
-            coverageImpact: coverageImpact(for: status)
+            coverageImpact: Self.coverageImpact(for: status)
         )
     }
 

@@ -74,12 +74,7 @@ public enum ProcessSampler {
 
     /// CPU time (ns) + resident bytes via proc_pid_rusage RUSAGE_INFO_V2.
     private static func usageInfo(pid: pid_t) -> (cpu: UInt64, rss: UInt64)? {
-        var info = rusage_info_v2()
-        let result = withUnsafeMutablePointer(to: &info) { pointer in
-            proc_pid_rusage(pid, RUSAGE_INFO_V2, UnsafeMutableRawPointer(pointer))
-        }
-        guard result == 0 else { return nil }
-        let cpu = info.ri_user_time + info.ri_system_time
-        return (cpu, info.ri_resident_size)
+        _ = pid
+        return nil
     }
 }

@@ -83,7 +83,7 @@ public enum IncrementalScanSupport {
         FSEventStreamRelease(stream)
 
         let snapshot = collector.snapshot()
-        guard !snapshot.newestEventID.isZero else {
+        guard snapshot.newestEventID != 0 else {
             return (snapshot.paths, nil)
         }
         return (snapshot.paths, snapshot.newestEventID)

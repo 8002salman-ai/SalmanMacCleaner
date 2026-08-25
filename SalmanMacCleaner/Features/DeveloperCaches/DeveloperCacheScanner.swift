@@ -199,7 +199,7 @@ public enum DeveloperCacheScanner {
                 guard !validatedChild.isSymlink else { continue }
                 guard !PathSafety.isAppBundle(validatedChild.canonical) else { continue }
 
-                let name = validatedChild.canonical.lastPathComponent
+                let name = URL(fileURLWithPath: validatedChild.canonical).lastPathComponent
                 if PathSafety.isProtectedFile(name: name, purpose: .explicitDeveloperCache) { continue }
 
                 let isDirectory = validatedChild.kind == .directory

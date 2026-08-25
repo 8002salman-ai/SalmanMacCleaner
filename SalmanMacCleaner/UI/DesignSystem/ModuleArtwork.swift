@@ -48,7 +48,7 @@ public struct ModuleArtwork: View {
                 // Satellite glyphs positioned deterministically per module.
                 let satellites = satelliteSymbols
                 for (index, symbol) in satellites.enumerated() {
-                    guard let resolved = context.resolve(Image(systemName: symbol)) else { continue }
+                    let resolved = context.resolve(Image(systemName: symbol))
                     let angle = Double(module.artworkSeed) * 0.61 + Double(index) * (2 * .pi / Double(max(satellites.count, 1)))
                     let orbit = radius * 1.18
                     let position = CGPoint(
@@ -80,7 +80,7 @@ public struct ModuleArtwork: View {
                 context.stroke(disc, with: .color(.white.opacity(colorScheme == .dark ? 0.16 : 0.5)), lineWidth: 1)
 
                 // Central module symbol.
-                guard let central = context.resolve(Image(systemName: module.systemImage)) else { return }
+                let central = context.resolve(Image(systemName: module.systemImage))
                 let centralSize = radius * 0.72
                 var centralContext = context
                 centralContext.addFilter(.shadow(color: primaryColor.opacity(0.55), radius: 18))

@@ -236,7 +236,6 @@ public enum JunkClassifier {
                 sourceRule: "installer"
             )
         }
-        _ = matchedRoot
         return nil
     }
 
