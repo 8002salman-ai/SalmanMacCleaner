@@ -232,10 +232,12 @@ public struct ResultsWorkspaceView: View {
     private var summaryTiles: some View {
         VStack(spacing: 10) {
             tile("results.tile.scanned", value: "\(outcome.itemsScanned)")
+            tile("results.tile.bytes", value: FileUtilities.formattedBytes(outcome.bytesIndexed))
+            tile("results.tile.elapsed", value: String(format: "%.1fs", outcome.finishedAt.timeIntervalSince(outcome.startedAt)))
             tile("results.tile.apps", value: "\(outcome.applicationCount)")
             tile("results.tile.duplicates", value: "\(outcome.duplicateGroupCount)")
         }
-        .frame(width: 190)
+        .frame(width: 210)
     }
 
     private func tile(_ title: LocalizedStringKey, value: String) -> some View {

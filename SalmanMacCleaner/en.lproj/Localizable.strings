@@ -849,3 +849,5 @@
 "traversal.skip.denied" = "Access denied";
 "traversal.skip.too_deep" = "Below the scan filter";
 "classify.reason.uninstall_bundle" = "Application bundle — included only in the explicit uninstaller flow";
+"results.tile.bytes" = "Bytes scanned";
+"results.tile.elapsed" = "Elapsed";
