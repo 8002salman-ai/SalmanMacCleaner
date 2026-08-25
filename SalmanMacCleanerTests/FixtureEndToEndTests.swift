@@ -33,6 +33,12 @@ final class FixtureEndToEndTests: XCTestCase {
         let url = fixture.appendingPathComponent(relative)
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         FileManager.default.createFile(atPath: url.path, contents: Data(contents.utf8))
+        // Backdate so the "in use" rule (fresh cache files are protected)
+        // does not make these fixtures non-deterministic.
+        try? FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-30 * 86_400)],
+            ofItemAtPath: url.path
+        )
         return url
     }
 

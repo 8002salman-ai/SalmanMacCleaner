@@ -108,7 +108,7 @@ struct LargeFilesView: View {
             config: .standard(
                 itemCount: viewModel.selection.count,
                 totalBytes: viewModel.selectedBytes,
-                destructive: !appState.settings.dryRun
+                previewOnly: appState.settings.dryRun
             ),
             onConfirm: {
                 viewModel.performCleanup(

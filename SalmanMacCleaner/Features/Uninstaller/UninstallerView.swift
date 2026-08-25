@@ -22,6 +22,9 @@ struct UninstallerView: View {
     @State private var selectedPaths: Set<String> = []
     @State private var showConfirmation = false
     @State private var isQuitting = false
+    @State private var isCleaning = false
+    /// Exact outcome of the last preview/uninstall run.
+    @State private var report: ExecutedCleanupResult?
 
     var body: some View {
         Group {
@@ -110,6 +113,15 @@ struct UninstallerView: View {
                 .frame(maxWidth: .infinity)
         }
         .searchable(text: $searchText, prompt: Text("uninstaller.search.prompt"))
+        .cleanupConfirmation(
+            isPresented: $showConfirmation,
+            config: .standard(
+                itemCount: selectedPaths.count,
+                totalBytes: selectedBytes,
+                previewOnly: appState.settings.dryRun
+            ),
+            onConfirm: { performCleanup() }
+        )
     }
 
     @ViewBuilder
@@ -195,11 +207,26 @@ struct UninstallerView: View {
                         .disabled(isQuitting)
                     }
                     Spacer()
-                    Button("results.preview_cleanup") { showConfirmation = true }
-                        .buttonStyle(AuroraSecondaryButtonStyle())
-                    Button("uninstaller.uninstall") { showConfirmation = true }
-                        .buttonStyle(AuroraPrimaryButtonStyle())
-                        .disabled(appState.settings.dryRun || app.isRunning)
+                    // One honest action. Preview Mode on → "Preview Selected"
+                    // (confirms with "Confirm Preview", moves nothing).
+                    // Preview Mode off → "Move Selected to Trash".
+                    Button {
+                        showConfirmation = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: appState.settings.dryRun ? "eye.fill" : "trash.fill")
+                            Text(appState.settings.dryRun ? "results.preview_selected" : "common.trash_selected")
+                        }
+                    }
+                    .buttonStyle(AuroraPrimaryButtonStyle())
+                    .disabled(selectedPaths.isEmpty || isCleaning || app.isRunning)
+                    .help(appState.settings.dryRun
+                          ? Text("results.preview_selected.help")
+                          : Text("common.trash_selected.help"))
+                }
+
+                if let report {
+                    uninstallReport(report)
                 }
             }
             .padding(24)
@@ -294,56 +321,180 @@ struct UninstallerView: View {
         }
     }
 
-    private func performCleanup() {
-        guard let app = selectedApp else { return }
-        var items: [CleanupItem] = []
-        if selectedPaths.contains(app.bundlePath) {
-            items.append(CleanupItem(path: app.bundlePath, size: app.bundleSize, kind: "app"))
+    /// Bytes represented by the current explicit selection.
+    private var selectedBytes: Int64 {
+        var total: Int64 = 0
+        if let app = selectedApp, selectedPaths.contains(app.bundlePath) {
+            total += app.bundleSize
         }
         for item in matchedItems where selectedPaths.contains(item.path) {
-            items.append(CleanupItem(path: item.path, size: item.size, kind: "support"))
+            total += item.size
         }
-        guard !items.isEmpty else { return }
-        let root = PathSafety.userHome.path
-        let previewOnly = appState.settings.dryRun
-        appState.beginActivity(.cleaning(detail: NSLocalizedString("uninstaller.cleaning", comment: "")))
+        return total
+    }
 
-        let task = Task {
+    /// Uninstall the selected app and only the support items the user
+    /// explicitly checked. The bundle is admitted through a narrow,
+    /// explicit grant (the bundle path itself) — never by widening the
+    /// cleanup policy. System apps, running apps, other users' files and
+    /// preferences are refused with an exact reason.
+    private func performCleanup() {
+        guard let app = selectedApp else { return }
+        let previewOnly = appState.settings.dryRun
+        report = nil
+
+        var selection: [ScannedItem] = []
+        var authorizedRoots: [String] = []
+        if selectedPaths.contains(app.bundlePath) {
+            selection.append(ScannedItem(
+                path: app.bundlePath,
+                size: app.bundleSize,
+                isDirectory: true
+            ))
+            // The grant covers exactly this bundle — nothing else on disk.
+            authorizedRoots.append(URL(fileURLWithPath: app.bundlePath).standardizedFileURL.path)
+        }
+        for item in matchedItems where selectedPaths.contains(item.path) {
+            selection.append(item)
+        }
+        guard !selection.isEmpty else { return }
+
+        let home = PathSafety.userHome.path
+        let built = CleanupPlanBuilder.buildDetailed(
+            selection: selection,
+            records: selection.compactMap {
+                MetadataCollector.collect(
+                    url: URL(fileURLWithPath: $0.path, isDirectory: $0.isDirectory)
+                )
+            },
+            containmentRoot: home,
+            previewOnly: previewOnly,
+            allowBundles: true,
+            authorizedRoots: authorizedRoots
+        )
+
+        // Selections whose metadata could not be read are reported, never
+        // silently dropped.
+        let accounted = Set(built.plan.items.map { $0.path } + built.rejections.map { $0.path })
+        let unreadable: [(path: String, reason: String, bytes: Int64)] = selection.compactMap { item in
+            let canonical = URL(fileURLWithPath: item.path).standardizedFileURL.path
+            guard !accounted.contains(canonical) else { return nil }
+            return (
+                canonical,
+                NSLocalizedString("plan.skip.no_record", comment: "") + " \(canonical)",
+                item.size
+            )
+        }
+
+        appState.beginActivity(.cleaning(detail: NSLocalizedString(
+            previewOnly ? "uninstaller.previewing" : "uninstaller.cleaning",
+            comment: ""
+        )))
+        isCleaning = true
+
+        Task {
             let result = await CleanupExecutor.shared.execute(
-                plan: CleanupPlanBuilder.build(
-                    selection: items.map { ScannedItem(path: $0.path, size: $0.size) },
-                    records: items.compactMap { MetadataCollector.collect(url: URL(fileURLWithPath: $0.path)) },
-                    containmentRoot: root,
-                    previewOnly: previewOnly,
-                    allowBundles: true
-                ),
+                plan: built.plan,
                 allowBundles: true,
+                authorizedRoots: authorizedRoots,
+                skipped: built.rejections + unreadable,
+                selectedCount: built.selectedCount + unreadable.count,
                 progress: { fraction, detail in
                     Task { @MainActor in appState.updateProgress(fraction, detail: detail) }
                 },
                 isCancelled: { Task.isCancelled }
             )
-            if Task.isCancelled { return }
-            appState.sessionStore.recordCleanup(CleanupHistoryRecord(
-                action: NSLocalizedString("history.action.uninstall", comment: ""),
-                category: "uninstaller",
-                itemCount: items.count,
-                bytes: result.bytesReclaimed,
-                previewOnly: previewOnly,
-                movedCount: result.moved.count,
-                failedCount: result.failedCount,
-                root: root
-            ))
-            appState.endActivity(message: String(
-                format: previewOnly
-                    ? NSLocalizedString("uninstaller.preview_done", comment: "")
-                    : NSLocalizedString("uninstaller.clean_done", comment: ""),
-                app.name
-            ))
-            load()
-            selectedApp = nil
-            selectedPaths = []
+            isCleaning = false
+            report = result
+
+            // Only what really moved leaves the list; everything else stays
+            // visible with its reported reason.
+            let moved = Set(result.moved)
+            if !moved.isEmpty {
+                matchedItems.removeAll { moved.contains($0.path) }
+                selectedPaths.subtract(moved)
+            }
+
+            if !built.plan.items.isEmpty {
+                appState.sessionStore.recordCleanup(CleanupHistoryRecord(
+                    action: NSLocalizedString("history.action.uninstall", comment: ""),
+                    category: "uninstaller",
+                    itemCount: result.succeededCount,
+                    bytes: result.previewOnly ? result.previewedBytes : result.movedBytes,
+                    previewOnly: result.previewOnly,
+                    movedCount: result.moved.count,
+                    failedCount: result.failedCount,
+                    skippedCount: result.skippedCount,
+                    root: home
+                ))
+            }
+            appState.endActivity(message: result.summary)
+
+            if !previewOnly, moved.contains(app.bundlePath) {
+                selectedApp = nil
+                selectedPaths = []
+                load()
+            }
         }
-        withExtendedLifetime(task) {}
+    }
+
+    /// Exact per-run report: counts, bytes, refusal reasons and a way to see
+    /// the moved bundle/components in the Trash.
+    private func uninstallReport(_ report: ExecutedCleanupResult) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: report.previewOnly
+                      ? "eye.fill"
+                      : (report.failedCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"))
+                    .foregroundStyle(report.previewOnly
+                                     ? AuroraPalette.cyan
+                                     : (report.failedCount > 0 ? AuroraPalette.amber : AuroraPalette.success))
+                Text(report.summary)
+                    .font(.callout.weight(.semibold))
+                Spacer()
+                if !report.trashDestinations.isEmpty {
+                    Button("results.reveal_in_trash") {
+                        let urls = report.trashDestinations.values.sorted().prefix(50)
+                            .map { URL(fileURLWithPath: $0) }
+                        NSWorkspace.shared.activateFileViewerSelecting(Array(urls))
+                    }
+                    .buttonStyle(.link)
+                    .help("results.reveal_in_trash.help")
+                }
+                Button {
+                    self.report = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("common.clear")
+            }
+            Text(String(
+                format: NSLocalizedString("cleanup.report.counts", comment: ""),
+                report.selectedCount,
+                report.plannedCount,
+                report.moved.count,
+                report.previewed.count,
+                report.skippedCount,
+                report.failedCount,
+                FileUtilities.formattedBytes(report.previewOnly ? report.previewedBytes : report.movedBytes)
+            ))
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+
+            ForEach(report.reasons(limit: 4), id: \.self) { reason in
+                Text(reason)
+                    .font(.caption)
+                    .foregroundStyle(AuroraPalette.amber)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
+        .accessibilityElement(children: .combine)
     }
 }

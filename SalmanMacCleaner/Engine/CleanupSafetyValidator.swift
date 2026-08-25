@@ -4,8 +4,14 @@
 //
 //  Per-item pre-action validation. Rechecks every guard immediately before
 //  the executor acts: canonicalization, traversal, symlink changes,
-//  ownership, volume, file identity, protected names, running apps and the
-//  allowlist rule.
+//  ownership, volume, file identity, protected names, running apps, system
+//  apps and the allowlist rule.
+//
+//  Authorized roots: the uninstaller flow grants exactly one path — the
+//  bundle the user picked. That grant waives *only* the user-home
+//  containment rule and the protected-root table entry for that path.
+//  Symlink, ownership, device, identity, running-app and system-app guards
+//  still apply, and nothing outside the grant is affected.
 //
 
 import Foundation
@@ -20,6 +26,10 @@ public enum ValidationFailure: LocalizedError, Equatable {
     case runningApp(String)
     case missing(String)
     case unsafe(String)
+    case symlink(String)
+    case unsupportedKind(String)
+    /// Carries the exact reason from the underlying path-safety policy.
+    case rejected(String)
 
     public var errorDescription: String? {
         switch self {
@@ -31,35 +41,61 @@ public enum ValidationFailure: LocalizedError, Equatable {
         case .runningApp(let p): return NSLocalizedString("validate.failure.running", comment: "") + " \(p)"
         case .missing(let p): return NSLocalizedString("validate.failure.missing", comment: "") + " \(p)"
         case .unsafe(let p): return NSLocalizedString("validate.failure.unsafe", comment: "") + " \(p)"
+        case .symlink(let p): return NSLocalizedString("cleanup.error.symlink", comment: "") + " \(p)"
+        case .unsupportedKind(let p): return NSLocalizedString("cleanup.error.kind", comment: "") + " \(p)"
+        case .rejected(let reason): return reason
         }
     }
 }
 
 public enum CleanupSafetyValidator {
 
+    /// Bundles shipped with macOS. Never offered, never removed.
+    public static func isSystemBundle(_ path: String) -> Bool {
+        path.hasPrefix("/System/") || path == "/System/Applications"
+    }
+
     /// Validate one planned item right before execution.
+    ///
+    /// - Parameters:
+    ///   - authorizedRoots: paths the user explicitly authorized (the
+    ///     uninstaller passes the selected bundle path). An item inside an
+    ///     authorized root may live outside the home directory and inside a
+    ///     protected-root table entry — nothing else changes.
     public static func validate(
         item: PlannedCleanupItem,
         allowBundles: Bool,
         libraryRoots: [String] = [],
-        reviewRoots: [String] = []
+        reviewRoots: [String] = [],
+        authorizedRoots: [String] = []
     ) -> Result<PlannedCleanupItem, ValidationFailure> {
         guard item.action.isAvailable else {
             return .failure(.unsafe(item.path))
         }
 
+        let candidate = URL(fileURLWithPath: item.path).standardizedFileURL.path
+        let isAuthorized = authorizedRoots.contains { PathSafety.isPath(candidate, inside: $0) }
+
         // 1. Path safety (canonicalization, containment, symlink rejection).
-        let result = PathSafety.validate(
+        let validated: PathSafety.ValidatedPath
+        switch PathSafety.validate(
             path: item.path,
             root: item.containmentRoot,
             purpose: .cleanup,
-            allowSymlink: false
-        )
-        guard case .success(let validated) = result else {
-            return .failure(.unsafe(item.path))
+            allowSymlink: false,
+            allowOutsideHome: isAuthorized,
+            allowProtectedRoot: isAuthorized
+        ) {
+        case .failure(let error):
+            return .failure(.rejected(error.errorDescription ?? item.path))
+        case .success(let value):
+            validated = value
         }
         guard !validated.isSymlink else {
-            return .failure(.pathChanged(item.path))
+            return .failure(.symlink(item.path))
+        }
+        guard validated.kind == .regularFile || validated.kind == .directory else {
+            return .failure(.unsupportedKind(item.path))
         }
 
         // 2. Recheck ownership.
@@ -85,15 +121,16 @@ public enum CleanupSafetyValidator {
             }
         }
 
-        // 5. Recheck protected names/suffixes.
-        let name = (validated.canonical as NSString).lastPathComponent
-        guard !PathSafety.isProtectedFile(name: name, purpose: .cleanup) else {
-            return .failure(.protectedName(item.path))
-        }
-
-        // 6. Recheck app-bundle / running-app state.
-        if PathSafety.isAppBundle(validated.canonical) {
+        // 5. Recheck app-bundle / running-app / system-app state.
+        let isBundle = PathSafety.isAppBundle(validated.canonical)
+        // The uninstaller's narrow grant covers the bundle the user picked;
+        // it never widens to bundle contents or to any other path.
+        let authorizedBundle = isBundle && allowBundles && isAuthorized
+        if isBundle {
             guard allowBundles else {
+                return .failure(.protectedName(item.path))
+            }
+            guard !isSystemBundle(validated.canonical) else {
                 return .failure(.protectedName(item.path))
             }
             guard !CleanupEngine.isAppRunning(bundlePath: validated.canonical) else {
@@ -101,14 +138,27 @@ public enum CleanupSafetyValidator {
             }
         }
 
+        // 6. Recheck protected names/suffixes. Skipped only for the bundle the
+        //    user explicitly authorized for uninstall.
+        if !authorizedBundle {
+            let name = (validated.canonical as NSString).lastPathComponent
+            guard !PathSafety.isProtectedFile(name: name, purpose: .cleanup) else {
+                return .failure(.protectedName(item.path))
+            }
+        }
+
         // 7. Recheck the allowlist rule: the item must still classify as
         //    non-protected under the current tree state.
-        guard let record = MetadataCollector.collect(url: URL(fileURLWithPath: validated.canonical, isDirectory: validated.kind == .directory)) else {
-            return .failure(.missing(item.path))
-        }
-        let verdict = JunkClassifier.classify(record, libraryRoots: libraryRoots, reviewRoots: reviewRoots)
-        guard verdict.safety != .protected else {
-            return .failure(.protectedName(item.path))
+        if !authorizedBundle {
+            guard let record = MetadataCollector.collect(
+                url: URL(fileURLWithPath: validated.canonical, isDirectory: validated.kind == .directory)
+            ) else {
+                return .failure(.missing(item.path))
+            }
+            let verdict = JunkClassifier.classify(record, libraryRoots: libraryRoots, reviewRoots: reviewRoots)
+            guard verdict.safety != .protected else {
+                return .failure(.protectedName(item.path))
+            }
         }
 
         return .success(item)

@@ -487,6 +487,20 @@ public actor ScanIndexStore {
         _ = try? statement?.step()
     }
 
+    /// Evict exactly the paths that were moved to the Trash, so the results
+    /// workspace can never show — or re-select — an item that no longer
+    /// exists. Everything else in the scan stays indexed.
+    public func deleteRecords(scanID: Int64, paths: [String]) {
+        guard !paths.isEmpty else { return }
+        for path in paths {
+            let statement = try? db.prepare("DELETE FROM records WHERE scan_id=? AND path=?;")
+            guard let statement else { continue }
+            _ = statement.bindInt(scanID, at: 1)
+            _ = statement.bindText(path, at: 2)
+            _ = try? statement.step()
+        }
+    }
+
     // MARK: - Volume event state (incremental scans)
 
     public func lastEventID(forMountPoint mountPoint: String) -> UInt64? {

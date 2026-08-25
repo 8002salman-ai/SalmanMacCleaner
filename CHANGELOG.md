@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Cleanup workflow (Preview Mode wording, real Trash moves, exact counts).**
+  - Preview Mode no longer offers "Move to Trash": the action is
+    "Preview Selected" and the dialog confirms with "Confirm Preview".
+    Preview never reaches the Trash API (asserted by a mock mover test).
+  - A real run is labelled "Move Selected to Trash", revalidates every
+    item and moves it with `FileManager.trashItem(at:resultingItemURL:)`.
+    Nothing is permanently deleted and the Trash is never emptied.
+  - The uninstaller's confirmation dialog was never attached, so its
+    `performCleanup()` was unreachable; it is now wired, and a selected
+    removable app moves through a narrow authorized-root grant (the
+    bundle path itself) while system apps, running apps, other users'
+    files and preferences are refused with an exact reason.
+  - Counts, bytes, banners and history are now exact and self-reconciling:
+    `selected == moved + previewed + failed + skipped + notProcessed`,
+    with per-item skip/failure reasons and a "Reveal in Trash" action.
+  - Moved items are removed from the results, evicted from the scan index
+    and subtracted from the header totals; a cancelled run always ends the
+    activity banner and records what actually ran.
+
+### Fixed
+
 - **Deep Scan "Items scanned: 1" defect.** Root causes, all fixed:
   - The directory enumerator yields the scan root itself first; it was
     recorded as a file (nil-defaulted `isDirectory`) and the first failed

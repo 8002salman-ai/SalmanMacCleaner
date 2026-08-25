@@ -52,15 +52,19 @@ public struct CleanupHistoryRecord: Identifiable, Codable, Equatable {
     public var date: Date
     public var action: String
     public var category: String
+    /// Items the run actually processed (moved or previewed).
     public var itemCount: Int
     public var bytes: Int64
     public var previewOnly: Bool
     public var movedCount: Int
     public var failedCount: Int
+    /// Selections that never entered the plan (0 for records written before
+    /// this field existed).
+    public var skippedCount: Int
     public var root: String
 
     public init(id: UUID = UUID(),
-                date: Date,
+                date: Date = Date(),
                 action: String,
                 category: String,
                 itemCount: Int,
@@ -68,6 +72,7 @@ public struct CleanupHistoryRecord: Identifiable, Codable, Equatable {
                 previewOnly: Bool,
                 movedCount: Int,
                 failedCount: Int,
+                skippedCount: Int = 0,
                 root: String) {
         self.id = id
         self.date = date
@@ -78,7 +83,29 @@ public struct CleanupHistoryRecord: Identifiable, Codable, Equatable {
         self.previewOnly = previewOnly
         self.movedCount = movedCount
         self.failedCount = failedCount
+        self.skippedCount = skippedCount
         self.root = root
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, date, action, category, itemCount, bytes
+        case previewOnly, movedCount, failedCount, skippedCount, root
+    }
+
+    /// Tolerates history files written before `skippedCount` existed.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        action = try container.decode(String.self, forKey: .action)
+        category = try container.decode(String.self, forKey: .category)
+        itemCount = try container.decode(Int.self, forKey: .itemCount)
+        bytes = try container.decode(Int64.self, forKey: .bytes)
+        previewOnly = try container.decode(Bool.self, forKey: .previewOnly)
+        movedCount = try container.decode(Int.self, forKey: .movedCount)
+        failedCount = try container.decode(Int.self, forKey: .failedCount)
+        skippedCount = try container.decodeIfPresent(Int.self, forKey: .skippedCount) ?? 0
+        root = try container.decode(String.self, forKey: .root)
     }
 }
 

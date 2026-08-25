@@ -164,6 +164,12 @@ final class CleanupPlanTests: XCTestCase {
     private func makeFile(_ name: String, contents: String = "data") -> URL {
         let url = sandbox.appendingPathComponent(name)
         FileManager.default.createFile(atPath: url.path, contents: Data(contents.utf8))
+        // Backdate so the "in use" rule (fresh cache files are protected)
+        // does not make these fixtures non-deterministic.
+        try? FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-30 * 86_400)],
+            ofItemAtPath: url.path
+        )
         return url
     }
 
