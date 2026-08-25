@@ -27,7 +27,7 @@ import Foundation
 /// `FileManager.trashItem(at:resultingItemURL:)` — the only removal API the
 /// app is allowed to use. Tests inject a mock so the Preview-OFF code path
 /// can be exercised without touching the user's real Trash.
-public protocol TrashMover {
+public protocol TrashMover: Sendable {
     /// Move `path` to the Trash. Returns the resulting Trash path.
     /// Throws when the system refused the move; the caller records the
     /// reason and continues with the next item.

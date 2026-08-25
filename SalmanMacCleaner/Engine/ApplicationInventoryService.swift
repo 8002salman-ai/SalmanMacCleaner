@@ -36,6 +36,7 @@ public enum ApplicationInventoryService {
 
         var candidates: [(url: URL, root: URL)] = []
         for root in discoveryRoots() {
+            guard !Task.isCancelled else { break }
             candidates.append(contentsOf: appBundles(at: root, maxDepth: 3).map { ($0, root) })
         }
         // A development build can run from DerivedData or a user-selected
@@ -47,6 +48,7 @@ public enum ApplicationInventoryService {
         }
 
         for (appURL, root) in candidates {
+            guard !Task.isCancelled else { break }
             guard let record = makeRecord(appURL: appURL, root: root) else { continue }
             let canonical = record.bundlePath
             if seenPaths.contains(canonical) { continue }

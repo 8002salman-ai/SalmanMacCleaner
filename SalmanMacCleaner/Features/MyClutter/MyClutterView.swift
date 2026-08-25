@@ -20,6 +20,9 @@ struct MyClutterView: View {
     @State private var showPicker = false
     @State private var showConfirmation = false
     @State private var cleanupReport: CleanupResult?
+    @State private var scanWasPartial = false
+    @State private var scanTask: Task<Void, Never>?
+    @State private var scanToken = UUID()
 
     var body: some View {
         Group {
@@ -46,11 +49,21 @@ struct MyClutterView: View {
                     ProgressView().controlSize(.large)
                     Text("clutter.scanning")
                         .foregroundStyle(.secondary)
+                    Button("common.cancel") {
+                        cancelScan()
+                    }
+                    .buttonStyle(AuroraSecondaryButtonStyle())
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 results
             }
+        }
+        .onChange(of: appState.cancellationGeneration) { _ in
+            if isScanning { cancelScan() }
+        }
+        .onDisappear {
+            if isScanning { cancelScan() }
         }
     }
 
@@ -83,6 +96,12 @@ struct MyClutterView: View {
 
             if let cleanupReport {
                 CleanupResultSummaryView(result: cleanupReport)
+            }
+            if scanWasPartial {
+                PermissionBannerView(
+                    message: NSLocalizedString("clutter.partial_coverage", comment: ""),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
             }
 
             if items.isEmpty {
@@ -136,13 +155,33 @@ struct MyClutterView: View {
         }
         .cleanupConfirmation(
             isPresented: $showConfirmation,
-            config: .standard(itemCount: selection.count, totalBytes: selectedBytes, previewOnly: appState.settings.dryRun),
+            config: .standard(
+                itemCount: selection.count,
+                totalBytes: selectedBytes,
+                previewOnly: appState.settings.dryRun,
+                details: selectedConfirmationDetails
+            ),
             onConfirm: { performCleanup() }
         )
     }
 
     private var selectedBytes: Int64 {
         CleanupAccounting.uniqueBytes(for: items.filter { selection.contains($0.id) })
+    }
+
+    private var selectedConfirmationDetails: [String] {
+        items
+            .filter { selection.contains($0.id) }
+            .sorted { $0.path < $1.path }
+            .map {
+                ConfirmationDialogConfig.detailLine(
+                    path: $0.path,
+                    category: NSLocalizedString("junk.temp", comment: ""),
+                    size: $0.size,
+                    confidence: NSLocalizedString("safety.review", comment: ""),
+                    reason: $0.detail ?? NSLocalizedString("clutter.confirm.reason", comment: "")
+                )
+            }
     }
 
     private func binding(for id: UUID) -> Binding<Bool> {
@@ -155,49 +194,93 @@ struct MyClutterView: View {
     }
 
     private func scan(_ url: URL) {
+        scanTask?.cancel()
+        let token = UUID()
+        scanToken = token
         isScanning = true
+        scanWasPartial = false
         selection = []
         items = []
         let root = url.path
-        Task.detached(priority: .userInitiated) {
+
+        let task = Task.detached(priority: .userInitiated) {
             var found: [ScannedItem] = []
             var entriesVisited = 0
-            if let device = VolumeDiscoveryService.deviceID(ofMountPoint: root),
-               let enumerator = FileManager.default.enumerator(
-                   at: url,
-                   includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey],
-                   options: [.skipsHiddenFiles],
-                   errorHandler: { _, _ in true }
-               ) {
-                for case let entry as URL in enumerator {
-                    entriesVisited += 1
-                    guard entriesVisited <= 250_000, !Task.isCancelled else { break }
-                    if enumerator.level > 64 {
-                        enumerator.skipDescendants()
+            var partial = false
+            let enumerator = FileManager.default.enumerator(
+                at: url,
+                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey],
+                options: [.skipsHiddenFiles],
+                errorHandler: { _, _ in
+                    partial = true
+                    return true
+                }
+            )
+            guard let device = VolumeDiscoveryService.deviceID(ofMountPoint: root),
+                  let enumerator else {
+                await MainActor.run {
+                    guard scanToken == token else { return }
+                    scanWasPartial = true
+                    isScanning = false
+                }
+                return
+            }
+            for case let entry as URL in enumerator {
+                entriesVisited += 1
+                if entriesVisited > 250_000 {
+                    partial = true
+                    break
+                }
+                guard !Task.isCancelled else {
+                    partial = true
+                    break
+                }
+                if enumerator.level > 64 {
+                    partial = true
+                    enumerator.skipDescendants()
+                    continue
+                }
+                guard let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey]) else {
+                    partial = true
+                    continue
+                }
+                if values.isSymbolicLink == true { continue }
+                if values.isRegularFile == true {
+                    let safe = PathSafety.validate(path: entry.path, root: root, expectedDevice: dev_t(device), purpose: .scan, allowSymlink: false)
+                    guard case .success(let validated) = safe else {
+                        partial = true
                         continue
                     }
-                    guard let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .isDirectoryKey, .fileSizeKey]) else { continue }
-                    if values.isSymbolicLink == true { continue }
-                    if values.isRegularFile == true {
-                        let safe = PathSafety.validate(path: entry.path, root: root, expectedDevice: dev_t(device), purpose: .scan, allowSymlink: false)
-                        guard case .success(let validated) = safe else { continue }
-                        let identity = Crypto.inode(of: validated.canonical)
-                        found.append(ScannedItem(
-                            path: validated.canonical,
-                            size: Int64(values.fileSize ?? 0),
-                            modificationDate: (try? entry.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
-                            device: identity.map { Int32(clamping: Int64($0.0)) } ?? 0,
-                            inode: identity.map { UInt64($0.1) } ?? 0
-                        ))
-                    }
+                    let identity = Crypto.inode(of: validated.canonical)
+                    found.append(ScannedItem(
+                        path: validated.canonical,
+                        size: Int64(values.fileSize ?? 0),
+                        modificationDate: (try? entry.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+                        detail: NSLocalizedString("clutter.confirm.reason", comment: ""),
+                        device: identity.map { Int32(clamping: Int64($0.0)) } ?? 0,
+                        inode: identity.map { UInt64($0.1) } ?? 0
+                    ))
                 }
             }
             found.sort { $0.size > $1.size }
+            let wasCancelled = Task.isCancelled
             await MainActor.run {
-                items = Array(found.prefix(500))
+                guard scanToken == token else { return }
+                items = wasCancelled ? [] : Array(found.prefix(500))
+                scanWasPartial = partial || wasCancelled
                 isScanning = false
+                scanTask = nil
             }
         }
+        scanTask = task
+    }
+
+    private func cancelScan() {
+        scanTask?.cancel()
+        scanTask = nil
+        scanToken = UUID()
+        isScanning = false
+        scanWasPartial = true
     }
 
     private func performCleanup() {

@@ -45,6 +45,7 @@ public enum LargeFileScanner {
         var skipped = 0
         var totalBytes: Int64 = 0
         var rootCount = 0
+        var coverageLimited = false
         let rootTotal = max(roots.count, 1)
 
         for root in roots {
@@ -52,6 +53,7 @@ public enum LargeFileScanner {
             let rootPath = root.standardizedFileURL.path
             guard let device = PathSafety.deviceID(of: rootPath) else {
                 skipped += 1
+                coverageLimited = true
                 continue
             }
             rootCount += 1
@@ -65,6 +67,7 @@ public enum LargeFileScanner {
                 into: &items,
                 skipped: &skipped,
                 totalBytes: &totalBytes,
+                coverageLimited: &coverageLimited,
                 isCancelled: isCancelled
             )
             if isCancelled() { throw LargeFileScanError.cancelled }
@@ -76,7 +79,8 @@ public enum LargeFileScanner {
             roots: roots.map { $0.path },
             totalBytes: totalBytes,
             completed: !isCancelled(),
-            skippedCount: skipped
+            skippedCount: skipped,
+            coverageLimited: coverageLimited
         )
     }
 
@@ -89,6 +93,7 @@ public enum LargeFileScanner {
         into items: inout [ScannedItem],
         skipped: inout Int,
         totalBytes: inout Int64,
+        coverageLimited: inout Bool,
         isCancelled: @escaping () -> Bool
     ) {
         var stack: [(path: String, depth: Int)] = [(root, 0)]
@@ -99,9 +104,13 @@ public enum LargeFileScanner {
             directoriesVisited += 1
             guard directoriesVisited <= 100_000 else {
                 skipped += 1
+                coverageLimited = true
                 return
             }
-            if current.depth > maxDepth { continue }
+            if current.depth > maxDepth {
+                coverageLimited = true
+                continue
+            }
 
             let safe = PathSafety.validate(
                 path: current.path,
@@ -112,11 +121,13 @@ public enum LargeFileScanner {
             )
             guard case .success(let validated) = safe else {
                 skipped += 1
+                coverageLimited = true
                 continue
             }
             guard validated.kind == .directory else { continue }
             guard !PathSafety.isPersonalDirectory(validated.canonical) else {
                 skipped += 1
+                coverageLimited = true
                 continue
             }
 
@@ -126,6 +137,7 @@ public enum LargeFileScanner {
                 options: [.skipsHiddenFiles]
             ) else {
                 skipped += 1
+                coverageLimited = true
                 continue
             }
 
@@ -133,6 +145,7 @@ public enum LargeFileScanner {
             for (entryIndex, url) in contents.enumerated() {
                 guard entryIndex < 10_000 else {
                     skipped += 1
+                    coverageLimited = true
                     break
                 }
                 if isCancelled() { return }
@@ -150,6 +163,7 @@ public enum LargeFileScanner {
                     allowSymlink: false
                 ).get() else {
                     skipped += 1
+                    coverageLimited = true
                     continue
                 }
                 guard !childSafe.isSymlink else {
@@ -180,6 +194,8 @@ public enum LargeFileScanner {
                 for child in childDirs.reversed() {
                     stack.append((child.path, current.depth + 1))
                 }
+            } else if !childDirs.isEmpty {
+                coverageLimited = true
             }
         }
     }

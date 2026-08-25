@@ -12,6 +12,7 @@ import SwiftUI
 struct DuplicatesView: View {
     @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel = DuplicatesViewModel()
+    @StateObject private var folderStore = FolderAuthorizationsStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -24,6 +25,15 @@ struct DuplicatesView: View {
                     Label("duplicates.choose_folder", systemImage: "folder.badge.plus")
                 }
                 .buttonStyle(.borderedProminent)
+                Button {
+                    folderStore.presentFolderPicker { url in
+                        viewModel.addAuthorizedRoot(url)
+                    }
+                } label: {
+                    Label("duplicates.choose_external", systemImage: "externaldrive.badge.plus")
+                }
+                .buttonStyle(.borderless)
+                .help(Text("duplicates.choose_external.help"))
 
                 if !viewModel.roots.isEmpty {
                     Text(viewModel.roots.map(\.path).joined(separator: ", "))
@@ -117,7 +127,8 @@ struct DuplicatesView: View {
             config: .standard(
                 itemCount: viewModel.selection.count,
                 totalBytes: viewModel.selectedBytes,
-                previewOnly: appState.settings.dryRun
+                previewOnly: appState.settings.dryRun,
+                details: viewModel.selectedConfirmationDetails
             ),
             onConfirm: {
                 viewModel.performCleanup(settings: appState.settings, history: appState.history, activity: appState)

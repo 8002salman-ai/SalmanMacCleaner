@@ -159,9 +159,9 @@ public enum HealthCheckService {
             case .caches:
                 result = try cachesFactor(index: index, total: factors.count, progress: progress, isCancelled: isCancelled, coverageLimited: &coverageLimited)
             case .applications:
-                result = applicationsFactor()
+                result = try applicationsFactor(isCancelled: isCancelled)
             case .backgroundItems:
-                result = backgroundFactor()
+                result = try backgroundFactor(isCancelled: isCancelled)
             case .permissions:
                 result = permissionsFactor(permissionStatus)
             }
@@ -319,8 +319,10 @@ public enum HealthCheckService {
                                  measuredCount: report.entries.count)
     }
 
-    private static func applicationsFactor() -> HealthCheckFactor {
+    private static func applicationsFactor(isCancelled: @escaping () -> Bool) throws -> HealthCheckFactor {
+        try checkCancellation(isCancelled)
         let apps = ApplicationInventoryService.discoverApplications()
+        try checkCancellation(isCancelled)
         return HealthCheckFactor(
             id: .applications,
             status: apps.isEmpty ? .unavailable : .good,
@@ -330,8 +332,10 @@ public enum HealthCheckService {
         )
     }
 
-    private static func backgroundFactor() -> HealthCheckFactor {
+    private static func backgroundFactor(isCancelled: @escaping () -> Bool) throws -> HealthCheckFactor {
+        try checkCancellation(isCancelled)
         let items = StartupManager.discover()
+        try checkCancellation(isCancelled)
         let broken = items.filter(\.isBroken).count
         let status: HealthCheckStatus = broken > 0 ? .attention : .good
         let summary = broken > 0

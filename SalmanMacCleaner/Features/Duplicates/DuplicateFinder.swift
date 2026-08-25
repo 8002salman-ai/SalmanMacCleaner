@@ -59,6 +59,8 @@ public enum DuplicateFinder {
         roots: [URL],
         maxDepth: Int,
         minimumSize: Int64 = DuplicateFinder.minimumByteSize,
+        allowOutsideHome: Bool = false,
+        authorizedRoots: [String] = [],
         progress: @escaping (Double, String?) -> Void,
         isCancelled: @escaping () -> Bool
     ) throws -> [DuplicateGroup] {
@@ -66,6 +68,8 @@ public enum DuplicateFinder {
             roots: roots,
             maxDepth: maxDepth,
             minimumSize: minimumSize,
+            allowOutsideHome: allowOutsideHome,
+            authorizedRoots: authorizedRoots,
             progress: progress,
             isCancelled: isCancelled
         ).groups
@@ -85,6 +89,8 @@ public enum DuplicateFinder {
         roots: [URL],
         maxDepth: Int,
         minimumSize: Int64 = DuplicateFinder.minimumByteSize,
+        allowOutsideHome: Bool = false,
+        authorizedRoots: [String] = [],
         progress: @escaping (Double, String?) -> Void,
         isCancelled: @escaping () -> Bool
     ) throws -> DuplicateScanReport {
@@ -98,6 +104,13 @@ public enum DuplicateFinder {
             if isCancelled() { throw DuplicateScanError.cancelled }
             let rootPath = root.standardizedFileURL.path
             guard seenRoots.insert(rootPath).inserted else { continue }
+            let rootIsOutsideHome = !PathSafety.isInsideUserHome(rootPath)
+            let rootIsAuthorized = !rootIsOutsideHome
+                || (allowOutsideHome && authorizedRoots.contains(rootPath))
+            guard rootIsAuthorized else {
+                enumeration.deniedPaths += 1
+                continue
+            }
             guard let device = PathSafety.deviceID(of: rootPath) else {
                 enumeration.deniedPaths += 1
                 continue
@@ -107,6 +120,7 @@ public enum DuplicateFinder {
                 device: device,
                 maxDepth: max(0, maxDepth),
                 minimumSize: max(0, minimumSize),
+                allowOutsideHome: rootIsOutsideHome && allowOutsideHome,
                 into: &candidates,
                 isCancelled: isCancelled
             )
@@ -231,6 +245,7 @@ public enum DuplicateFinder {
         device: dev_t,
         maxDepth: Int,
         minimumSize: Int64,
+        allowOutsideHome: Bool,
         into candidates: inout [ScannedItem],
         isCancelled: @escaping () -> Bool
     ) throws -> EnumerationStats {
@@ -249,7 +264,14 @@ public enum DuplicateFinder {
                 continue
             }
 
-            let safe = PathSafety.validate(path: current.path, root: root, expectedDevice: device, purpose: .scan, allowSymlink: false)
+            let safe = PathSafety.validate(
+                path: current.path,
+                root: root,
+                expectedDevice: device,
+                purpose: .scan,
+                allowSymlink: false,
+                allowOutsideHome: allowOutsideHome
+            )
             guard case .success(let validated) = safe else { continue }
             guard validated.kind == .directory else { continue }
             guard let contents = try? FileManager.default.contentsOfDirectory(
@@ -273,7 +295,8 @@ public enum DuplicateFinder {
                     root: root,
                     expectedDevice: device,
                     purpose: .scan,
-                    allowSymlink: false
+                    allowSymlink: false,
+                    allowOutsideHome: allowOutsideHome
                 )
                 guard case .success(let validatedChild) = childSafe else { continue }
                 guard !validatedChild.isSymlink else { continue }

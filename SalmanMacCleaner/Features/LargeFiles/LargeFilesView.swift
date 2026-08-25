@@ -112,7 +112,8 @@ struct LargeFilesView: View {
             config: .standard(
                 itemCount: viewModel.selection.count,
                 totalBytes: viewModel.selectedBytes,
-                previewOnly: appState.settings.dryRun
+                previewOnly: appState.settings.dryRun,
+                details: viewModel.selectedConfirmationDetails
             ),
             onConfirm: {
                 viewModel.performCleanup(
@@ -157,6 +158,12 @@ struct LargeFilesView: View {
                     Label("common.sort", systemImage: "arrow.up.arrow.down")
                 }
                 .fixedSize()
+            }
+            if result.coverageLimited {
+                PermissionBannerView(
+                    message: NSLocalizedString("largefiles.partial_coverage", comment: ""),
+                    systemImage: "exclamationmark.triangle.fill"
+                )
             }
 
             SelectionSummaryBar(

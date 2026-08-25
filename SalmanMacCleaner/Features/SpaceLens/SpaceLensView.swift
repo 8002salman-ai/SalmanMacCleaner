@@ -317,6 +317,12 @@ public struct SpaceLensView: View {
         .onChange(of: model.includePackageContents) { _ in
             rescanAfterOptionChange()
         }
+        .onChange(of: appState.cancellationGeneration) { _ in
+            if model.isScanning { model.cancelScan() }
+        }
+        .onDisappear {
+            if model.isScanning { model.cancelScan() }
+        }
     }
 
     private func rescanAfterOptionChange() {

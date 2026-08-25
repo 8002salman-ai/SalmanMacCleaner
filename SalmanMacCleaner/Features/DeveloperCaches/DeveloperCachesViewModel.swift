@@ -121,7 +121,22 @@ final class DeveloperCachesViewModel: ObservableObject {
         })
     }
 
-    func startScan(settings: SettingsStore, coordinator: ScanCoordinator, activity: AppState) {
+    var selectedConfirmationDetails: [String] {
+        entries
+            .filter { selection.contains($0.id) }
+            .sorted { $0.path < $1.path }
+            .map {
+                ConfirmationDialogConfig.detailLine(
+                    path: $0.path,
+                    category: DeveloperCacheCategory(rawValue: $0.category)?.title ?? $0.category,
+                    size: $0.size,
+                    confidence: $0.confidence.title,
+                    reason: $0.reason
+                )
+            }
+    }
+
+    func startScan(settings: SettingsStore, coordinator: ScanCoordinator, activity: AppState, preserveCleanupReport: Bool = false) {
         errorMessage = nil
         deniedPaths = []
         truncatedPaths = []
@@ -129,7 +144,9 @@ final class DeveloperCachesViewModel: ObservableObject {
         progress = 0
         selection = []
         entries = []
-        cleanupReport = nil
+        if !preserveCleanupReport {
+            cleanupReport = nil
+        }
 
         let categories = selectedCategories
         let maxAge = settings.devCacheMaxAgeDays
@@ -241,6 +258,16 @@ final class DeveloperCachesViewModel: ObservableObject {
                         : NSLocalizedString("devcaches.clean_done", comment: ""),
                     previewOnly ? outcome.previewed.count : outcome.trashed.count
                 ))
+            if !previewOnly && !outcome.cancelled {
+                // Re-read the category roots after Trash movement. The result
+                // list must reflect what is still present, not a stale scan.
+                startScan(
+                    settings: settings,
+                    coordinator: coordinator,
+                    activity: activity,
+                    preserveCleanupReport: true
+                )
+            }
         }
     }
 }

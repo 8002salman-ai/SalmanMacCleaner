@@ -54,6 +54,7 @@ public enum ResidualCorrelationEngine {
         var seenPaths = Set<String>()
 
         for root in supportRoots(homeOverride: homeOverride) {
+            guard !Task.isCancelled else { break }
             guard let entries = try? FileManager.default.contentsOfDirectory(
                 at: URL(fileURLWithPath: root, isDirectory: true),
                 includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
@@ -61,6 +62,7 @@ public enum ResidualCorrelationEngine {
             ) else { continue }
 
             for entry in entries {
+                guard !Task.isCancelled else { break }
                 let path = entry.standardizedFileURL.path
                 guard seenPaths.insert(path).inserted,
                       case .success(let validated) = PathSafety.validate(

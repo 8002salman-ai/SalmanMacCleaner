@@ -135,7 +135,8 @@ struct UninstallerView: View {
             config: .standard(
                 itemCount: selectedPaths.count,
                 totalBytes: selectedBytes,
-                previewOnly: appState.settings.dryRun
+                previewOnly: appState.settings.dryRun,
+                details: selectedConfirmationDetails
             ),
             onConfirm: { performCleanup() }
         )
@@ -338,6 +339,33 @@ struct UninstallerView: View {
             load()
             select(app)
         }
+    }
+
+    private var selectedConfirmationDetails: [String] {
+        var details: [String] = []
+        if let app = selectedApp, selectedPaths.contains(app.bundlePath) {
+            details.append(ConfirmationDialogConfig.detailLine(
+                path: app.bundlePath,
+                category: NSLocalizedString("uninstaller.category.application", comment: ""),
+                size: app.bundleSize,
+                confidence: app.isRunning ? NSLocalizedString("confidence.cautious", comment: "") : NSLocalizedString("confidence.high", comment: ""),
+                reason: app.isRunning
+                    ? NSLocalizedString("uninstaller.reason.running", comment: "")
+                    : NSLocalizedString("uninstaller.reason.bundle_metadata", comment: "")
+            ))
+        }
+        details.append(contentsOf: matchedItems
+            .filter { selectedPaths.contains($0.path) }
+            .map {
+                ConfirmationDialogConfig.detailLine(
+                    path: $0.path,
+                    category: NSLocalizedString("uninstaller.category.support", comment: ""),
+                    size: $0.size,
+                    confidence: NSLocalizedString("confidence.high", comment: ""),
+                    reason: NSLocalizedString("uninstaller.reason.exact_bundle_id", comment: "")
+                )
+            })
+        return details.sorted()
     }
 
     /// Bytes represented by the current explicit selection.

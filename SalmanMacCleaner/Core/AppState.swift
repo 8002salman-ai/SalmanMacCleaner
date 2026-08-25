@@ -43,6 +43,9 @@ public final class AppState: ObservableObject {
     public let history: HistoryStore
     /// The most recently finished scan outcome (for the results workspace).
     @Published public var lastOutcome: ScanOutcome?
+    /// Monotonic cancellation signal for feature-local scanners that do not
+    /// use ScanCoordinator. This keeps the shared toolbar stop control honest.
+    @Published public private(set) var cancellationGeneration = UUID()
 
     public init(settings: SettingsStore? = nil,
                 sessionStore: ScanSessionStore? = nil,
@@ -97,7 +100,9 @@ public final class AppState: ObservableObject {
 
     /// Cancel the currently running scan (delegates to the coordinator).
     public func cancelCurrentScan() {
+        cancellationGeneration = UUID()
         DeepScanCoordinator.shared.cancel()
+        ScanCoordinator.shared.cancel()
         if case .scanning = activityPhase {
             activityPhase = .idle
             isBusy = false

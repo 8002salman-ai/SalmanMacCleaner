@@ -49,6 +49,21 @@ final class LargeFilesViewModel: ObservableObject {
         return CleanupAccounting.uniqueBytes(for: items.filter { selection.contains($0.id) })
     }
 
+    var selectedConfirmationDetails: [String] {
+        (result?.items ?? [])
+            .filter { selection.contains($0.id) }
+            .sorted { $0.path < $1.path }
+            .map {
+                ConfirmationDialogConfig.detailLine(
+                    path: $0.path,
+                    category: NSLocalizedString("junk.large_file", comment: ""),
+                    size: $0.size,
+                    confidence: NSLocalizedString("safety.review", comment: ""),
+                    reason: NSLocalizedString("largefiles.confirm.reason", comment: "")
+                )
+            }
+    }
+
     func addRoot(_ url: URL?) {
         folderPickerPresented = false
         guard let url else { return }
@@ -64,7 +79,7 @@ final class LargeFilesViewModel: ObservableObject {
         }
     }
 
-    func startScan(settings: SettingsStore, coordinator: ScanCoordinator, activity: AppState) {
+    func startScan(settings: SettingsStore, coordinator: ScanCoordinator, activity: AppState, preserveCleanupReport: Bool = false) {
         guard !roots.isEmpty else {
             errorMessage = NSLocalizedString("largefiles.error.no_roots", comment: "")
             return
@@ -74,7 +89,9 @@ final class LargeFilesViewModel: ObservableObject {
         progress = 0
         selection = []
         result = nil
-        cleanupReport = nil
+        if !preserveCleanupReport {
+            cleanupReport = nil
+        }
 
         let rootsSnapshot = roots
         let threshold = Int64(settings.largeFileThresholdMB * 1_048_576)
@@ -196,6 +213,16 @@ final class LargeFilesViewModel: ObservableObject {
                     self.result = updated
                 }
                 self.selection.subtract(movedIDs)
+                if !outcome.cancelled {
+                    // Re-scan the explicit roots so the visible inventory and
+                    // its measured bytes are reconciled with the filesystem.
+                    self.startScan(
+                        settings: settings,
+                        coordinator: ScanCoordinator.shared,
+                        activity: activity,
+                        preserveCleanupReport: true
+                    )
+                }
             }
         }
         withExtendedLifetime(task) {}

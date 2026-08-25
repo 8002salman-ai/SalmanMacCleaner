@@ -17,7 +17,7 @@ import AppKit
 import Combine
 import Darwin
 
-public struct CleanupItem: Identifiable, Equatable, Hashable {
+public struct CleanupItem: Identifiable, Equatable, Hashable, Sendable {
     public let id: UUID
     public let path: String
     public let size: Int64
@@ -163,13 +163,16 @@ public final class CleanupEngine: ObservableObject {
                 throw CleanupError.unsafeItem(NSLocalizedString("cleanup.error.category_root", comment: "") + " \(item.path)")
             }
         }
+        let validationRoot = allowedRoots.first { PathSafety.isPath(item.path, inside: $0) } ?? root
+        let allowOutsideHome = !PathSafety.isInsideUserHome(validationRoot)
         let expectedDevice: dev_t? = item.device > 0 ? dev_t(item.device) : nil
         let result = PathSafety.validate(
             path: item.path,
-            root: root,
+            root: validationRoot,
             expectedDevice: expectedDevice,
             purpose: purpose,
-            allowSymlink: false
+            allowSymlink: false,
+            allowOutsideHome: allowOutsideHome
         )
         switch result {
         case .failure(let error):
@@ -252,7 +255,6 @@ public final class CleanupEngine: ObservableObject {
         result.candidateBytes = CleanupAccounting.uniqueBytes(for: items)
         result.selectedBytes = result.candidateBytes
         let total = max(items.count, 1)
-        let fileManager = FileManager.default
         var measuredSizes: [String: Int64] = [:]
         func reconcile() async {
             let trashed = result.trashed
@@ -316,7 +318,7 @@ public final class CleanupEngine: ObservableObject {
                 } else {
                     let destinationPath = try await Task.detached(priority: .userInitiated) {
                         var resultingURL: NSURL?
-                        try fileManager.trashItem(
+                        try FileManager.default.trashItem(
                             at: URL(fileURLWithPath: safeItem.path),
                             resultingItemURL: &resultingURL
                         )

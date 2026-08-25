@@ -70,7 +70,7 @@ public final class FolderAuthorizationsStore: ObservableObject {
 
     /// Present the system folder picker and persist a security-scoped
     /// bookmark for the chosen folder. Returns true when granted.
-    public func presentFolderPicker() {
+    public func presentFolderPicker(onAuthorized: ((URL) -> Void)? = nil) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -79,7 +79,9 @@ public final class FolderAuthorizationsStore: ObservableObject {
         panel.message = NSLocalizedString("folders.picker.message", comment: "")
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        authorize(url: url)
+        if authorize(url: url) {
+            onAuthorized?(url.standardizedFileURL)
+        }
     }
 
     /// Store a security-scoped bookmark for `url`.

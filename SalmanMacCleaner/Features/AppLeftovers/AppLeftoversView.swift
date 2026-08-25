@@ -35,6 +35,8 @@ struct AppLeftoversView: View {
     @State private var searchText = ""
     @State private var filter: LeftoverFilter = .all
     @State private var report: CleanupResult?
+    @State private var scanTask: Task<Void, Never>?
+    @State private var scanToken = UUID()
 
     var body: some View {
         Group {
@@ -56,6 +58,12 @@ struct AppLeftoversView: View {
             }
         }
         .searchable(text: $searchText, prompt: Text("search.items.prompt"))
+        .onChange(of: appState.cancellationGeneration) { _ in
+            if isScanning { cancelScan() }
+        }
+        .onDisappear {
+            if isScanning { cancelScan() }
+        }
     }
 
     private var visibleGroups: [LeftoverCandidate] {
@@ -91,9 +99,17 @@ struct AppLeftoversView: View {
                     ForEach(LeftoverFilter.allCases) { item in Text(item.title).tag(item) }
                 }
                 .frame(width: 165)
-                Button { runScan() } label: { Label("leftovers.rescan", systemImage: "arrow.clockwise") }
+                if isScanning {
+                    Button {
+                        cancelScan()
+                    } label: {
+                        Label("common.cancel", systemImage: "xmark")
+                    }
                     .buttonStyle(AuroraSecondaryButtonStyle())
-                    .disabled(isScanning)
+                } else {
+                    Button { runScan() } label: { Label("leftovers.rescan", systemImage: "arrow.clockwise") }
+                        .buttonStyle(AuroraSecondaryButtonStyle())
+                }
             }
             .padding(12)
             .glassCard()
@@ -128,7 +144,12 @@ struct AppLeftoversView: View {
         .safeAreaInset(edge: .bottom) { actionBar }
         .cleanupConfirmation(
             isPresented: $showConfirmation,
-            config: .standard(itemCount: selectedItemCount, totalBytes: selectedBytes, previewOnly: appState.settings.dryRun),
+            config: .standard(
+                itemCount: selectedItemCount,
+                totalBytes: selectedBytes,
+                previewOnly: appState.settings.dryRun,
+                details: selectedConfirmationDetails
+            ),
             onConfirm: { performCleanup() }
         )
     }
@@ -233,6 +254,22 @@ struct AppLeftoversView: View {
     private var selectedItemCount: Int { selectedGroups.reduce(0) { $0 + $1.paths.count } }
     private var selectedBytes: Int64 { selectedGroups.reduce(0) { CleanupAccounting.adding($0, $1.totalSize) } }
 
+    private var selectedConfirmationDetails: [String] {
+        selectedGroups
+            .flatMap { group in
+                group.paths.map { path in
+                    ConfirmationDialogConfig.detailLine(
+                        path: path,
+                        category: group.classification.title,
+                        size: FileUtilities.fileSize(atPath: path),
+                        confidence: group.confidence.title,
+                        reason: group.evidence
+                    )
+                }
+            }
+            .sorted()
+    }
+
     private func binding(for groupID: String) -> Binding<Bool> {
         Binding(
             get: { selection.contains(groupID) },
@@ -243,18 +280,47 @@ struct AppLeftoversView: View {
         )
     }
 
-    private func runScan() {
+    private func runScan(preserveReport: Bool = false) {
+        scanTask?.cancel()
+        let token = UUID()
+        scanToken = token
         isScanning = true
         selection.removeAll()
-        report = nil
-        Task.detached(priority: .userInitiated) {
-            let apps = ApplicationInventoryService.discoverApplications()
-            let found = ResidualCorrelationEngine.discoverLeftovers(installedApps: apps)
-            await MainActor.run {
-                leftovers = found
-                isScanning = false
-            }
+        if !preserveReport {
+            report = nil
         }
+        appState.beginActivity(.scanning(detail: NSLocalizedString("leftovers.scanning", comment: "")))
+        let worker = Task.detached(priority: .userInitiated) {
+            let apps = ApplicationInventoryService.discoverApplications()
+            guard !Task.isCancelled else { return [LeftoverCandidate]() }
+            return ResidualCorrelationEngine.discoverLeftovers(installedApps: apps)
+        }
+        let task = Task { @MainActor in
+            let found = await withTaskCancellationHandler(operation: {
+                await worker.value
+            }, onCancel: {
+                worker.cancel()
+            })
+            guard !Task.isCancelled else { return }
+            guard self.scanToken == token else { return }
+            leftovers = found
+            isScanning = false
+            scanTask = nil
+            appState.endActivity(message: String(
+                format: NSLocalizedString("leftovers.scan_complete", comment: ""),
+                found.count,
+                FileUtilities.formattedBytes(found.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.totalSize) })
+            ))
+        }
+        scanTask = task
+    }
+
+    private func cancelScan() {
+        scanTask?.cancel()
+        scanTask = nil
+        scanToken = UUID()
+        isScanning = false
+        appState.endActivity(message: NSLocalizedString("scan.cancelled", comment: ""))
     }
 
     private func performCleanup() {
@@ -310,6 +376,12 @@ struct AppLeftoversView: View {
                 : (result.previewOnly
                     ? String(format: NSLocalizedString("leftovers.preview_done", comment: ""), result.previewed.count)
                     : String(format: NSLocalizedString("leftovers.clean_done", comment: ""), result.trashed.count)))
+            if !previewOnly && !result.cancelled {
+                // Rebuild the evidence-based inventory after movement so
+                // surviving support files and their measured bytes remain
+                // truthful.
+                runScan(preserveReport: true)
+            }
         }
     }
 

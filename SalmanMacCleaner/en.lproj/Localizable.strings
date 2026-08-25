@@ -38,6 +38,10 @@
 "common.confirm.title" = "Confirm Cleanup";
 "common.confirm.message" = "%d item(s) selected, %@ total. Items are moved to the Trash only — you can always restore them. Continue?";
 "common.confirm.trash" = "Move Selected to Trash";
+"common.confirm.details_header" = "Exact selected items (path · category · size · confidence · reason):";
+"common.confirm.item" = "• %@ · %@ · %@ · %@ · %@";
+"common.confirm.no_reason" = "No additional reason recorded";
+"common.confirm.more_items" = "… and %d more item(s); review the results list for the complete selection.";
 
 /* Search */
 "search.items.prompt" = "Search results";
@@ -91,6 +95,7 @@
 "folder.error.not_owned" = "That folder belongs to another user.";
 "folder.error.app_bundle" = "Application bundles cannot be scanned this way.";
 "folder.error.not_directory" = "Choose a folder, not a file.";
+"folder.error.authorization_expired" = "The external folder authorization is unavailable. Authorize it again before cleanup.";
 
 /* Dashboard */
 "dashboard.storage.title" = "Storage";
@@ -130,12 +135,17 @@
 "largefiles.empty.message" = "No files above your threshold were found in the selected folders. You can lower the threshold in Settings.";
 "largefiles.results.summary" = "%d files, %@";
 "largefiles.results.skipped" = "· %d skipped (protected, links or unreadable)";
+"largefiles.partial_coverage" = "Coverage is partial: a safety, permission, depth, or traversal limit excluded part of the selected folder.";
 "largefiles.preview_done" = "Previewed %d large file(s) — nothing was moved.";
 "largefiles.clean_done" = "Moved %d large file(s) to the Trash.";
+"largefiles.confirm.reason" = "Measured above the configured large-file threshold.";
 
 /* Duplicates */
 "duplicates.safety_note" = "Duplicate Finder hashes files with a streaming SHA-256 in the folders you select. Groups keep one copy (the keeper) and offer the rest for cleanup — only the items you tick are moved to the Trash.";
 "duplicates.choose_folder" = "Choose Folder…";
+"duplicates.choose_external" = "Authorize external folder";
+"duplicates.choose_external.help" = "Choose a user-owned folder outside Home. macOS will ask for a security-scoped permission.";
+"folder.error.unauthorized_external" = "This folder is not a user-owned, permitted directory or is protected.";
 "duplicates.scan" = "Find Duplicates";
 "duplicates.scanning" = "Finding duplicates…";
 "duplicates.cleaning" = "Moving selected duplicates…";
@@ -154,6 +164,8 @@
 "duplicates.hardlink_note.help" = "Some candidates are hard links to the same data. They are collapsed so removing a link is never counted as reclaimable space.";
 "duplicates.preview_done" = "Previewed %d duplicate file(s) — nothing was moved.";
 "duplicates.clean_done" = "Moved %d duplicate file(s) to the Trash.";
+"duplicates.confidence.exact" = "Exact hash match";
+"duplicates.confirm.reason" = "Same size and full SHA-256 content match; keeper remains.";
 "duplicates.coverage.complete" = "Measured %d files across %d directories.";
 "duplicates.coverage.partial" = "Partial coverage: measured %d files across %d directories; %d paths were inaccessible or the scan bounds were reached.";
 "duplicates.coverage.partial_empty" = "No duplicates were found in the measured portion. Review the partial-coverage notice before drawing conclusions.";
@@ -326,6 +338,8 @@
 "clutter.picker.message" = "Choose a specific folder inside Desktop, Documents or Downloads to review.";
 "clutter.preview_done" = "Previewed %lld item(s) — nothing was moved.";
 "clutter.scanning" = "Reviewing folder…";
+"clutter.partial_coverage" = "Coverage is partial: a safety, permission, depth, or traversal limit excluded part of the chosen folder.";
+"clutter.confirm.reason" = "Matched the selected clutter review rules.";
 "coverage.all_accessible" = "Scanned all accessible files in the selected scope.";
 "coverage.denied_roots" = "Permission-denied roots";
 "coverage.errors" = "Errors encountered";
@@ -563,6 +577,8 @@
 "large_old.picker.message" = "Choose a folder to scan for large and old files.";
 "large_old.preview_done" = "Previewed %lld file(s) — nothing was moved.";
 "large_old.scanning" = "Finding large and old files…";
+"large_old.partial_coverage" = "Coverage is partial: a safety, permission, depth, or traversal limit excluded part of the chosen folder.";
+"large_old.confirm.reason" = "Measured above the configured size threshold and not modified for at least %d days.";
 "leftovers.clean_done" = "%lld item(s) moved to the Trash.";
 "leftovers.cleaning" = "Moving leftovers…";
 "leftovers.empty.message" = "Every support entry matches an installed application.";
@@ -571,6 +587,7 @@
 "leftovers.preview_done" = "Previewed %lld item(s) — nothing was moved.";
 "leftovers.rescan" = "Rescan";
 "leftovers.scanning" = "Correlating support files with installed applications…";
+"leftovers.scan_complete" = "Measured %d leftover group(s), %@ total.";
 "leftovers.summary" = "%lld leftover group(s), %@";
 "menu.check_updates" = "Check for Updates…";
 "menu.deep_scan" = "Deep Scan";
@@ -768,6 +785,11 @@
 "trash.total_hint" = "Current Trash size: %@";
 "uninstaller.bundle_row" = "Application bundle";
 "uninstaller.components" = "Components";
+"uninstaller.category.application" = "Application bundle";
+"uninstaller.category.support" = "Verified support file";
+"uninstaller.reason.bundle_metadata" = "User-owned bundle with readable metadata; app is not running.";
+"uninstaller.reason.running" = "Running application; the final cleanup validation will refuse it.";
+"uninstaller.reason.exact_bundle_id" = "Support entry matched the selected application's exact bundle identifier.";
 "uninstaller.no_components" = "No matching support files found.";
 "uninstaller.quit_app" = "Quit and Recheck";
 "uninstaller.removable_count" = "%lld removable application(s)";

@@ -26,7 +26,7 @@ import XCTest
 
 /// Records every move request without touching the filesystem. Proves which
 /// paths the executor hands to the Trash API — and that preview hands it none.
-private final class MockTrashMover: TrashMover {
+private final class MockTrashMover: TrashMover, @unchecked Sendable {
 
     struct MockRefusal: LocalizedError {
         let message: String
@@ -911,7 +911,7 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
         )
 
         // Custom mover that fails on f3
-        final class SelectiveMover: TrashMover {
+        final class SelectiveMover: TrashMover, @unchecked Sendable {
             let failPath: String
             init(failPath: String) { self.failPath = failPath }
             func moveToTrash(_ path: String) throws -> String {
@@ -1041,12 +1041,14 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
         cache.invalidate(path: path)
         cache.setNode(plain, for: path, includeHidden: false, includePackageContents: false)
         cache.setNode(expanded, for: path, includeHidden: true, includePackageContents: true)
+        cache.setNode(plain, for: path + "/child", includeHidden: false, includePackageContents: false)
 
         XCTAssertEqual(cache.node(for: path, includeHidden: false, includePackageContents: false)?.totalBytes, 10)
         XCTAssertEqual(cache.node(for: path, includeHidden: true, includePackageContents: true)?.totalBytes, 20)
         cache.invalidate(path: path)
         XCTAssertNil(cache.node(for: path, includeHidden: false, includePackageContents: false))
         XCTAssertNil(cache.node(for: path, includeHidden: true, includePackageContents: true))
+        XCTAssertNil(cache.node(for: path + "/child", includeHidden: false, includePackageContents: false))
     }
 
     func testSystemProtectedPathsAreNeverPlannedForRemoval() {

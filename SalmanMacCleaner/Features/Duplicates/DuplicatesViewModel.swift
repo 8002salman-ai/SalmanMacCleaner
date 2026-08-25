@@ -73,18 +73,55 @@ final class DuplicatesViewModel: ObservableObject {
         return CleanupAccounting.uniqueBytes(for: selectedItems)
     }
 
+    var selectedConfirmationDetails: [String] {
+        groups.flatMap { group in
+            group.removableFiles
+                .filter { selection.contains($0.id) }
+                .map { file in
+                    ConfirmationDialogConfig.detailLine(
+                        path: file.path,
+                        category: NSLocalizedString("junk.duplicate", comment: ""),
+                        size: file.size,
+                        confidence: NSLocalizedString("duplicates.confidence.exact", comment: ""),
+                        reason: String(format: NSLocalizedString("duplicates.confirm.reason", comment: ""), String(group.hash.prefix(16)))
+                    )
+                }
+        }
+        .sorted()
+    }
+
     func addRoot(_ url: URL?) {
         folderPickerPresented = false
         guard let url else { return }
         switch FolderPicker.validatePickedFolder(url) {
         case .success(let validated):
-            if !roots.contains(validated) {
-                roots.append(validated)
-                groups = []
-                selection = []
-            }
+            addValidatedRoot(validated)
         case .failure(let error):
             errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Add a folder that was explicitly granted through a security-scoped
+    /// bookmark. Unlike the ordinary picker, this intentionally permits a
+    /// user-owned folder outside the home directory, while still refusing
+    /// protected roots, bundles, symlinks, and non-directories.
+    func addAuthorizedRoot(_ url: URL) {
+        let standardized = url.standardizedFileURL
+        guard PathSafety.kind(of: standardized.path) == .directory,
+              PathSafety.isOwnedByCurrentUser(standardized.path),
+              !PathSafety.isProtectedRootLocation(standardized.path),
+              !PathSafety.isAppBundle(standardized.path) else {
+            errorMessage = NSLocalizedString("folder.error.unauthorized_external", comment: "")
+            return
+        }
+        addValidatedRoot(standardized)
+    }
+
+    private func addValidatedRoot(_ url: URL) {
+        if !roots.contains(url) {
+            roots.append(url)
+            groups = []
+            selection = []
         }
     }
 
@@ -97,7 +134,7 @@ final class DuplicatesViewModel: ObservableObject {
         progress = 0
     }
 
-    func startScan(settings: SettingsStore, coordinator: ScanCoordinator, activity: AppState) {
+    func startScan(settings: SettingsStore, coordinator: ScanCoordinator, activity: AppState, preserveCleanupReport: Bool = false) {
         guard !roots.isEmpty else {
             errorMessage = NSLocalizedString("duplicates.error.no_roots", comment: "")
             return
@@ -107,11 +144,19 @@ final class DuplicatesViewModel: ObservableObject {
         progress = 0
         selection = []
         groups = []
-        cleanupReport = nil
+        if !preserveCleanupReport {
+            cleanupReport = nil
+        }
         coverageReport = nil
 
         let rootsSnapshot = roots
         let depth = settings.maxScanDepth
+        let authorizedURLs = FolderAuthorizationsStore.shared.activateScopes()
+        let authorizedPaths = Set(authorizedURLs.map { $0.standardizedFileURL.path })
+        let hasAuthorizedExternalRoot = rootsSnapshot.contains { root in
+            !PathSafety.isInsideUserHome(root.path)
+                && authorizedPaths.contains(root.standardizedFileURL.path)
+        }
         let operation = ScanOperation<DuplicateScanReport>(
             title: NSLocalizedString("duplicates.scanning", comment: ""),
             roots: rootsSnapshot.map { $0.path }
@@ -119,6 +164,8 @@ final class DuplicatesViewModel: ObservableObject {
             try DuplicateFinder.scanReport(
                 roots: rootsSnapshot,
                 maxDepth: depth,
+                allowOutsideHome: hasAuthorizedExternalRoot,
+                authorizedRoots: Array(authorizedPaths),
                 progress: progressCallback,
                 isCancelled: isCancelled
             )
@@ -131,6 +178,7 @@ final class DuplicatesViewModel: ObservableObject {
             self?.progress = fraction
             self?.detail = detail
         }, onComplete: { [weak self] outcome in
+            FolderAuthorizationsStore.shared.deactivateScopes()
             guard let self, self.scanToken == token else { return }
             self.isScanning = false
             self.hasRun = true
@@ -178,6 +226,14 @@ final class DuplicatesViewModel: ObservableObject {
         let root = PathSafety.userHome.path
         let allowedRoots = roots.map { $0.standardizedFileURL.path }
         let previewOnly = settings.dryRun
+        let authorizedURLs = FolderAuthorizationsStore.shared.activateScopes()
+        let authorizedPaths = Set(authorizedURLs.map { $0.standardizedFileURL.path })
+        let externalRoots = allowedRoots.filter { !PathSafety.isInsideUserHome($0) }
+        guard externalRoots.allSatisfy({ authorizedPaths.contains($0) }) else {
+            FolderAuthorizationsStore.shared.deactivateScopes()
+            errorMessage = NSLocalizedString("folder.error.authorization_expired", comment: "")
+            return
+        }
 
         activity.beginActivity(.cleaning(detail: NSLocalizedString("duplicates.cleaning", comment: "")))
         let task = Task {
@@ -191,6 +247,7 @@ final class DuplicatesViewModel: ObservableObject {
                 },
                 isCancelled: { Task.isCancelled }
             )
+            FolderAuthorizationsStore.shared.deactivateScopes()
             if Task.isCancelled { return }
             self.cleanupReport = outcome
 
@@ -229,6 +286,16 @@ final class DuplicatesViewModel: ObservableObject {
                     return updated.files.count > 1 ? updated : nil
                 }
                 self.selection.subtract(movedIDs)
+                if !outcome.cancelled {
+                    // Verify the source roots after Trash movement so a
+                    // concurrent filesystem change cannot leave stale groups.
+                    self.startScan(
+                        settings: settings,
+                        coordinator: coordinator,
+                        activity: activity,
+                        preserveCleanupReport: true
+                    )
+                }
             }
         }
         withExtendedLifetime(task) {}

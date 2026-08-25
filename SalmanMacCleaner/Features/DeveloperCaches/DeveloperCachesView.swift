@@ -192,7 +192,7 @@ struct DeveloperCachesView: View {
                 if viewModel.groupByCategory {
                     List {
                         ForEach(viewModel.entriesByCategory) { group in
-                            Section(group.title) {
+                            Section(header: Text(group.title)) {
                                 ForEach(group.entries) { entry in
                                     resultRow(entry)
                                 }
@@ -243,7 +243,12 @@ struct DeveloperCachesView: View {
             .overlay(alignment: .top) { Divider().opacity(0.25) }
             .cleanupConfirmation(
                 isPresented: $viewModel.showConfirmation,
-                config: .standard(itemCount: viewModel.selection.count, totalBytes: viewModel.selectedBytes, previewOnly: appState.settings.dryRun),
+                config: .standard(
+                    itemCount: viewModel.selection.count,
+                    totalBytes: viewModel.selectedBytes,
+                    previewOnly: appState.settings.dryRun,
+                    details: viewModel.selectedConfirmationDetails
+                ),
                 onConfirm: { viewModel.performCleanup(settings: appState.settings, history: appState.history, activity: appState) }
             )
         }

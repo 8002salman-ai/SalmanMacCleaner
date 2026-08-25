@@ -121,7 +121,12 @@ public final class SpaceLensCache: @unchecked Sendable {
     public func invalidate(path: String) {
         lock.lock()
         defer { lock.unlock() }
-        cache = cache.filter { !$0.key.hasPrefix(Self.pathPrefix(path)) }
+        let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+        let exactPrefix = Self.pathPrefix(standardized)
+        let descendantPrefix = standardized.hasSuffix("/") ? standardized : standardized + "/"
+        cache = cache.filter {
+            !$0.key.hasPrefix(exactPrefix) && !$0.key.hasPrefix(descendantPrefix)
+        }
     }
 
     private func key(path: String, includeHidden: Bool, includePackageContents: Bool) -> String {

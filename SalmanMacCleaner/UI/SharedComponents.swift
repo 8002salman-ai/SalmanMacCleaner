@@ -159,8 +159,8 @@ struct CleanupResultSummaryView: View {
             HStack(spacing: 8) {
                 Image(systemName: result.previewOnly
                       ? "eye.fill"
-                      : (result.failedCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"))
-                    .foregroundStyle(result.previewOnly ? AuroraPalette.cyan : (result.failedCount > 0 ? AuroraPalette.amber : AuroraPalette.success))
+                      : (result.cancelled || result.failedCount > 0 ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"))
+                    .foregroundStyle(result.previewOnly ? AuroraPalette.cyan : (result.cancelled || result.failedCount > 0 ? AuroraPalette.amber : AuroraPalette.success))
                 Text(result.previewOnly
                      ? String(format: NSLocalizedString("cleanup.report.previewed", comment: ""), result.previewed.count, FileUtilities.formattedBytes(result.totalBytes))
                      : String(format: NSLocalizedString("cleanup.report.moved", comment: ""), result.trashed.count, FileUtilities.formattedBytes(result.movedBytes)))
@@ -307,23 +307,50 @@ extension ConfirmationDialogConfig {
     /// "Move Selected to Trash" as a destructive action. `destructive`
     /// defaults to `!previewOnly` so the dialog can never label a preview
     /// as a destructive move.
+    static func detailLine(path: String,
+                           category: String,
+                           size: Int64,
+                           confidence: String,
+                           reason: String) -> String {
+        String(format: NSLocalizedString("common.confirm.item", comment: ""),
+               path,
+               category,
+               FileUtilities.formattedBytes(size),
+               confidence,
+               reason.isEmpty ? NSLocalizedString("common.confirm.no_reason", comment: "") : reason)
+    }
+
     static func standard(itemCount: Int,
                          totalBytes: Int64,
                          previewOnly: Bool = false,
-                         destructive: Bool? = nil) -> ConfirmationDialogConfig {
+                         destructive: Bool? = nil,
+                         details: [String] = []) -> ConfirmationDialogConfig {
+        let baseMessage = String(
+            format: NSLocalizedString(
+                previewOnly ? "common.confirm.preview_message" : "common.confirm.message",
+                comment: ""
+            ),
+            itemCount,
+            FileUtilities.formattedBytes(totalBytes)
+        )
+        let visibleDetails = details.prefix(12)
+        let detailMessage: String
+        if visibleDetails.isEmpty {
+            detailMessage = ""
+        } else {
+            let remaining = details.count - visibleDetails.count
+            let suffix = remaining > 0
+                ? "\n" + String(format: NSLocalizedString("common.confirm.more_items", comment: ""), remaining)
+                : ""
+            detailMessage = "\n\n" + NSLocalizedString("common.confirm.details_header", comment: "")
+                + "\n" + visibleDetails.joined(separator: "\n") + suffix
+        }
         ConfirmationDialogConfig(
             title: NSLocalizedString(
                 previewOnly ? "common.confirm.preview_title" : "common.confirm.title",
                 comment: ""
             ),
-            message: String(
-                format: NSLocalizedString(
-                    previewOnly ? "common.confirm.preview_message" : "common.confirm.message",
-                    comment: ""
-                ),
-                itemCount,
-                FileUtilities.formattedBytes(totalBytes)
-            ),
+            message: baseMessage + detailMessage,
             confirmTitle: NSLocalizedString(
                 previewOnly ? "common.confirm.preview" : "common.confirm.trash",
                 comment: ""

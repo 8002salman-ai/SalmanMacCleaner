@@ -49,6 +49,7 @@ public struct ScanResult: Equatable {
     public var totalBytes: Int64
     public var completed: Bool
     public var skippedCount: Int
+    public var coverageLimited: Bool
     public var errorMessage: String?
 
     public init(items: [ScannedItem] = [],
@@ -56,12 +57,14 @@ public struct ScanResult: Equatable {
                 totalBytes: Int64 = 0,
                 completed: Bool = true,
                 skippedCount: Int = 0,
+                coverageLimited: Bool = false,
                 errorMessage: String? = nil) {
         self.items = items
         self.roots = roots
         self.totalBytes = totalBytes
         self.completed = completed
         self.skippedCount = skippedCount
+        self.coverageLimited = coverageLimited
         self.errorMessage = errorMessage
     }
 

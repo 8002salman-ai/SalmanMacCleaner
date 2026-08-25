@@ -144,6 +144,21 @@ public final class ResultsWorkspaceModel: ObservableObject {
         return CleanupPlanBuilder.uniqueBytes(for: selectedRecords)
     }
 
+    public var selectedConfirmationDetails: [String] {
+        items
+            .filter { selection.contains($0.path) }
+            .sorted { $0.path < $1.path }
+            .map {
+                ConfirmationDialogConfig.detailLine(
+                    path: $0.path,
+                    category: $0.junkCategory.title,
+                    size: $0.allocatedSize,
+                    confidence: $0.safetyLevel.title,
+                    reason: $0.reason
+                )
+            }
+    }
+
     public var visibleItems: [ClassifiedRecord] {
         var list = items
         if !searchText.isEmpty {
@@ -349,7 +364,8 @@ public struct ResultsWorkspaceView: View {
             config: .standard(
                 itemCount: model.selection.count,
                 totalBytes: model.selectedBytes,
-                previewOnly: appState.settings.dryRun
+                previewOnly: appState.settings.dryRun,
+                details: model.selectedConfirmationDetails
             ),
             onConfirm: { performCleanup() }
         )
