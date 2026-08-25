@@ -41,7 +41,7 @@ struct SmartCareView: View {
     }
 
     private var permissionWarning: String? {
-        PermissionService.shared.snapshot.fullDiskAccess == .likelyFullAccess
+        PermissionService.shared.snapshot.fullDiskAccess == .granted
             ? nil
             : NSLocalizedString("hero.permission.limited_scan", comment: "")
     }

@@ -786,4 +786,260 @@ final class CleanupWorkflowRegressionTests: XCTestCase {
         XCTAssertTrue(draft.reconciles,
                       "the bar's 2 selections must reconcile with 1 planned + 1 skipped")
     }
+
+    // MARK: - 8. Double-counting, Canonicalization & Feature Invariants
+
+    func testParentChildDoubleCountingPruningAndAccounting() async throws {
+        let parentDir = sandbox.appendingPathComponent("caches/ParentFolder", isDirectory: true)
+        try FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
+        let child1 = makeFile("caches/ParentFolder/child1.cache", contents: "payload 1")
+        let child2 = makeFile("caches/ParentFolder/child2.cache", contents: "payload 2")
+        let child3 = makeFile("caches/ParentFolder/sub/child3.cache", contents: "payload 3")
+
+        guard let parentRecord = MetadataCollector.collect(url: parentDir),
+              let r1 = MetadataCollector.collect(url: child1),
+              let r2 = MetadataCollector.collect(url: child2),
+              let r3 = MetadataCollector.collect(url: child3) else {
+            return XCTFail("fixtures must be readable")
+        }
+
+        let allRecords = [parentRecord, r1, r2, r3]
+        let allSelected = allRecords.map { ScannedItem(path: $0.path, size: $0.allocatedSize, isDirectory: $0.isDirectory) }
+
+        // When parent and descendants are both in selection, descendants must be pruned
+        let draft = CleanupPlanBuilder.buildDetailed(
+            selection: allSelected,
+            records: allRecords,
+            containmentRoot: sandbox.path,
+            previewOnly: false,
+            libraryRoots: [sandbox.path]
+        )
+
+        XCTAssertEqual(draft.plan.items.count, 1, "Only the parent directory must be planned")
+        XCTAssertEqual(draft.plan.items.first?.path, parentDir.standardizedFileURL.path)
+        XCTAssertEqual(draft.selectedCount, 1, "Pruned selection count must be 1")
+        XCTAssertTrue(draft.reconciles)
+
+        let mover = MockTrashMover()
+        let result = await CleanupExecutor(trashMover: mover).execute(
+            plan: draft.plan,
+            libraryRoots: [sandbox.path],
+            skipped: draft.rejections,
+            selectedCount: draft.selectedCount,
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertEqual(mover.calls.count, 1, "Only the parent directory moves to Trash")
+        XCTAssertEqual(result.moved.count, 1)
+        XCTAssertEqual(result.failedCount, 0)
+        XCTAssertEqual(result.skippedCount, 0)
+        XCTAssertTrue(result.reconciles)
+    }
+
+    func testCanonicalDuplicatePathsDeduplication() throws {
+        let file = makeFile("caches/canonical-test.cache")
+        guard let record = MetadataCollector.collect(url: file) else {
+            return XCTFail("fixture must be readable")
+        }
+
+        let variations = [
+            ScannedItem(path: file.path, size: record.allocatedSize),
+            ScannedItem(path: file.path + "/.", size: record.allocatedSize),
+            ScannedItem(path: file.deletingLastPathComponent().path + "/../caches/" + file.lastPathComponent, size: record.allocatedSize)
+        ]
+
+        let draft = CleanupPlanBuilder.buildDetailed(
+            selection: variations,
+            records: [record],
+            containmentRoot: sandbox.path,
+            previewOnly: true,
+            libraryRoots: [sandbox.path]
+        )
+
+        XCTAssertEqual(draft.selectedCount, 1, "Duplicate canonical path representations must collapse into 1 item")
+        XCTAssertEqual(draft.plan.items.count, 1)
+        XCTAssertEqual(draft.rejections.count, 0)
+        XCTAssertTrue(draft.reconciles)
+    }
+
+    func testHardLinksWithIdenticalInodesAreDeduplicated() throws {
+        let original = makeFile("caches/original.cache", contents: "unique payload")
+        let link = sandbox.appendingPathComponent("caches/hardlink.cache")
+        try FileManager.default.linkItem(at: original, to: link)
+
+        guard let r1 = MetadataCollector.collect(url: original),
+              let r2 = MetadataCollector.collect(url: link) else {
+            return XCTFail("fixtures must be readable")
+        }
+
+        XCTAssertEqual(r1.inode, r2.inode, "hard links must have identical inode")
+
+        let draft = CleanupPlanBuilder.buildDetailed(
+            selection: [ScannedItem(path: r1.path, size: r1.allocatedSize), ScannedItem(path: r2.path, size: r2.allocatedSize)],
+            records: [r1, r2],
+            containmentRoot: sandbox.path,
+            previewOnly: true,
+            libraryRoots: [sandbox.path]
+        )
+
+        XCTAssertEqual(draft.selectedCount, 2)
+        XCTAssertEqual(draft.plan.items.count, 1, "Only one inode representative is planned")
+        XCTAssertEqual(draft.rejections.count, 1, "Duplicate inode is rejected")
+        XCTAssertTrue(draft.reconciles)
+    }
+
+    func testSuccessfulAndFailedTrashMovesExactReconciliation() async throws {
+        let f1 = makeFile("caches/success1.cache")
+        let f2 = makeFile("caches/success2.cache")
+        let f3 = makeFile("caches/refused.cache")
+
+        guard let r1 = MetadataCollector.collect(url: f1),
+              let r2 = MetadataCollector.collect(url: f2),
+              let r3 = MetadataCollector.collect(url: f3) else {
+            return XCTFail("fixtures must be readable")
+        }
+
+        let draft = CleanupPlanBuilder.buildDetailed(
+            selection: [ScannedItem(path: r1.path, size: r1.allocatedSize),
+                        ScannedItem(path: r2.path, size: r2.allocatedSize),
+                        ScannedItem(path: r3.path, size: r3.allocatedSize)],
+            records: [r1, r2, r3],
+            containmentRoot: sandbox.path,
+            previewOnly: false,
+            libraryRoots: [sandbox.path]
+        )
+
+        // Custom mover that fails on f3
+        final class SelectiveMover: TrashMover {
+            let failPath: String
+            init(failPath: String) { self.failPath = failPath }
+            func moveToTrash(_ path: String) throws -> String {
+                if path == failPath {
+                    throw NSError(domain: NSCocoaErrorDomain, code: 512, userInfo: [NSLocalizedDescriptionKey: "File is locked"])
+                }
+                return NSTemporaryDirectory() + "Trash/" + (path as NSString).lastPathComponent
+            }
+        }
+
+        let mover = SelectiveMover(failPath: f3.path)
+        let result = await CleanupExecutor(trashMover: mover).execute(
+            plan: draft.plan,
+            libraryRoots: [sandbox.path],
+            skipped: draft.rejections,
+            selectedCount: draft.selectedCount,
+            progress: { _, _ in },
+            isCancelled: { false }
+        )
+
+        XCTAssertEqual(result.selectedCount, 3)
+        XCTAssertEqual(result.moved.count, 2)
+        XCTAssertEqual(result.failedCount, 1)
+        XCTAssertEqual(result.skippedCount, 0)
+        XCTAssertEqual(result.notProcessed, 0)
+        XCTAssertTrue(result.reconciles, "selected == moved + failed + skipped + notProcessed")
+        XCTAssertEqual(result.movedBytes, r1.allocatedSize + r2.allocatedSize)
+    }
+
+    func testCleanupEvictsMovedDirectoryAndAllDescendantsFromIndex() async throws {
+        let store = try ScanIndexStore(path: sandbox.appendingPathComponent("test-index.sqlite").path)
+        let scanID = try await store.beginScan(mode: .quick, scope: ScanScope(mode: .quick), provenance: .full)
+
+        let parentDir = sandbox.appendingPathComponent("caches/ParentBundle", isDirectory: true)
+        try FileManager.default.createDirectory(at: parentDir, withIntermediateDirectories: true)
+        let child1 = makeFile("caches/ParentBundle/data1.cache")
+        let child2 = makeFile("caches/ParentBundle/data2.cache")
+
+        guard let pr = MetadataCollector.collect(url: parentDir),
+              let cr1 = MetadataCollector.collect(url: child1),
+              let cr2 = MetadataCollector.collect(url: child2) else {
+            return XCTFail("fixtures must be readable")
+        }
+
+        try await store.insertClassifiedRecords(scanID: scanID, pairs: [
+            (pr, JunkVerdict(category: .userCache, safety: .safe, reason: "parent cache", autoSelectable: true, regenerable: true, sourceRule: "test")),
+            (cr1, JunkVerdict(category: .userCache, safety: .safe, reason: "child cache 1", autoSelectable: true, regenerable: true, sourceRule: "test")),
+            (cr2, JunkVerdict(category: .userCache, safety: .safe, reason: "child cache 2", autoSelectable: true, regenerable: true, sourceRule: "test"))
+        ])
+
+        let initialTotals = await store.recalculateTotals(scanID: scanID)
+        XCTAssertEqual(initialTotals.itemsScanned, 3)
+
+        // Evict the parent folder
+        await store.deleteRecordsAndDescendants(scanID: scanID, paths: [pr.path])
+        let remainingTotals = await store.recalculateTotals(scanID: scanID)
+        XCTAssertEqual(remainingTotals.itemsScanned, 0, "Evicting parent directory must also evict all descendant records")
+        XCTAssertEqual(remainingTotals.safeBytes, 0)
+    }
+
+    func testRegeneratedOldCachesAreSafeWhileFreshFilesAreProtected() {
+        let oldCache = makeFile("caches/old.cache", contents: "old payload", ageDays: 30)
+        let freshCache = makeFile("caches/fresh.cache", contents: "fresh payload", ageDays: 0)
+
+        guard let oldRecord = MetadataCollector.collect(url: oldCache),
+              let freshRecord = MetadataCollector.collect(url: freshCache) else {
+            return XCTFail("fixtures must be readable")
+        }
+
+        let libraryRoots = [sandbox.appendingPathComponent("caches").path]
+        let oldVerdict = JunkClassifier.classify(oldRecord, libraryRoots: libraryRoots)
+        let freshVerdict = JunkClassifier.classify(freshRecord, libraryRoots: libraryRoots)
+
+        XCTAssertEqual(oldVerdict.safety, .safe)
+        XCTAssertTrue(oldVerdict.autoSelectable)
+        XCTAssertEqual(freshVerdict.safety, .protected, "Fresh files (< 1 day old) are protected against accidental deletion")
+    }
+
+    func testFDARefreshAndStateClassification() {
+        let snapshot = PermissionService.probeSnapshot()
+        XCTAssertNotEqual(snapshot.lastCheck, .distantPast)
+        XCTAssertFalse(snapshot.coverageImpact.isEmpty)
+        XCTAssertTrue(FullDiskAccessStatus.allCases.contains(snapshot.fullDiskAccess))
+    }
+
+    func testSpaceLensExplicitStatesNeverShowZeroKBForUnscanned() {
+        let unscannedTarget = SpaceLensTargetRoot(name: "TestRoot", path: "/UnscannedPath", icon: "folder.fill")
+        XCTAssertEqual(unscannedTarget.state, .notScanned)
+        XCTAssertEqual(unscannedTarget.state.title, "Not scanned")
+        XCTAssertFalse(unscannedTarget.state.title.contains("0 KB"), "Unscanned roots must never display 0 KB")
+
+        let deniedState = SpaceLensRootState.denied(reason: "EPERM")
+        XCTAssertEqual(deniedState.title, "Access denied")
+        XCTAssertFalse(deniedState.title.contains("0 KB"))
+
+        let measuredState = SpaceLensRootState.measured(bytes: 1024 * 1024 * 50, fileCount: 120)
+        XCTAssertTrue(measuredState.title.contains("MB") || measuredState.title.contains("50"))
+    }
+
+    func testSpaceLensBubblePackingProportions() {
+        let child1 = SpaceLensNode(name: "Large", path: "/large", allocatedBytes: 100_000_000, isDirectory: true)
+        let child2 = SpaceLensNode(name: "Medium", path: "/medium", allocatedBytes: 40_000_000, isDirectory: true)
+        let child3 = SpaceLensNode(name: "Small", path: "/small", allocatedBytes: 5_000_000, isDirectory: true)
+
+        let root = SpaceLensNode(name: "Root", path: "/", allocatedBytes: 0, isDirectory: true, children: [child1, child2, child3])
+        let layout = BubblePacker.layout(node: root, in: CGSize(width: 600, height: 600))
+
+        let b1 = layout.first { $0.source.name == "Large" }
+        let b2 = layout.first { $0.source.name == "Medium" }
+        let b3 = layout.first { $0.source.name == "Small" }
+
+        XCTAssertNotNil(b1)
+        XCTAssertNotNil(b2)
+        XCTAssertNotNil(b3)
+
+        if let b1, let b2, let b3 {
+            XCTAssertGreaterThan(b1.frame.width, b2.frame.width)
+            XCTAssertGreaterThan(b2.frame.width, b3.frame.width)
+        }
+    }
+
+    func testSystemProtectedPathsAreNeverPlannedForRemoval() {
+        XCTAssertTrue(SpaceLensEngine.isSystemPath("/System"))
+        XCTAssertTrue(SpaceLensEngine.isSystemPath("/usr/bin"))
+        XCTAssertTrue(SpaceLensEngine.isSystemPath("/sbin/launchd"))
+        XCTAssertFalse(SpaceLensEngine.isSystemPath(PathSafety.userHome.path))
+
+        XCTAssertTrue(CleanupSafetyValidator.isSystemBundle("/System/Applications/Safari.app"))
+        XCTAssertFalse(CleanupSafetyValidator.isSystemBundle("/Applications/Safari.app"))
+    }
 }

@@ -2,11 +2,12 @@
 //  ResultsWorkspaceView.swift
 //  SalmanMacCleaner
 //
-//  The premium post-scan workspace: summary header, reclaimable-space ring,
-//  coverage status, summary tiles, category navigation, virtualized item
-//  list, details inspector, and a sticky bottom action bar. The Preview Mode
-//  control is deliberate: Clean becomes available only after the user
-//  explicitly leaves Preview Mode (with confirmation).
+//  Compact native SwiftUI glass workspace (min 980x680): compact top summary
+//  header, collapsible category rail, search/sort toolbar, virtualized item
+//  list with checkbox, tooltip, source, size, safety badge, and a sticky
+//  bottom glass action bar.
+//
+//  Strictly no page-level scrolling: only the result list container scrolls.
 //
 
 import SwiftUI
@@ -48,6 +49,26 @@ public enum ResultsCategory: String, CaseIterable, Identifiable {
     }
 }
 
+public enum ResultsSortOption: String, CaseIterable, Identifiable {
+    case sizeDescending
+    case sizeAscending
+    case nameAscending
+    case nameDescending
+    case dateDescending
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .sizeDescending: return NSLocalizedString("results.sort.size_desc", comment: "")
+        case .sizeAscending: return NSLocalizedString("results.sort.size_asc", comment: "")
+        case .nameAscending: return NSLocalizedString("results.sort.name_asc", comment: "")
+        case .nameDescending: return NSLocalizedString("results.sort.name_desc", comment: "")
+        case .dateDescending: return NSLocalizedString("results.sort.date_desc", comment: "")
+        }
+    }
+}
+
 @MainActor
 public final class ResultsWorkspaceModel: ObservableObject {
     @Published public var outcome: ScanOutcome?
@@ -55,11 +76,12 @@ public final class ResultsWorkspaceModel: ObservableObject {
     @Published public var category: ResultsCategory = .safe
     @Published public var selection: Set<String> = []
     @Published public var searchText = ""
+    @Published public var sortOption: ResultsSortOption = .sizeDescending
+    @Published public var isRailCollapsed = false
     @Published public var showCleanConfirmation = false
     @Published public var showPreviewExitConfirmation = false
     @Published public var cleanupMessage: String?
-    /// The exact outcome of the last preview/cleanup run, or nil. Drives the
-    /// report bar: counts, bytes, failure reasons and "Reveal in Trash".
+    /// The exact outcome of the last preview/cleanup run, or nil.
     @Published public var report: ExecutedCleanupResult?
     @Published public var isCleaning = false
 
@@ -80,13 +102,20 @@ public final class ResultsWorkspaceModel: ObservableObject {
             items = []
             return
         }
-        let safety: SafetyLevel? = category == .safe ? .safe : (category == .review ? .review : (category == .protected ? .protected : nil))
+        let safety: SafetyLevel?
+        switch category {
+        case .safe: safety = .safe
+        case .review: safety = .review
+        case .protected: safety = .protected
+        default: safety = nil
+        }
+
         Task {
             let fetched = await coordinator.indexStore.classifiedItems(
                 scanID: outcome.scanID,
                 safety: safety,
                 category: nil,
-                limit: 2_000
+                limit: 5_000
             )
             self.items = fetched
             self.smartSelect()
@@ -94,27 +123,53 @@ public final class ResultsWorkspaceModel: ObservableObject {
     }
 
     /// Only SAFE items may be smart-selected; REVIEW/PROTECTED never are.
-    private func smartSelect() {
+    public func smartSelect() {
         guard SettingsStore.shared.smartSelection else { return }
         let safeIDs = Set(items.filter { $0.safetyLevel == .safe }.map { $0.path })
         selection = selection.intersection(safeIDs).union(safeIDs)
     }
 
+    public func selectAllVisible() {
+        let selectable = visibleItems.filter { $0.safetyLevel != .protected }.map { $0.path }
+        selection.formUnion(selectable)
+    }
+
+    public func deselectAll() {
+        selection.removeAll()
+    }
+
+    /// Calculate unique selected bytes without parent/descendant double-counting.
     public var selectedBytes: Int64 {
-        items.filter { selection.contains($0.path) }.reduce(0) { $0 + $1.allocatedSize }
+        let selectedRecords = items.filter { selection.contains($0.path) }
+        return CleanupPlanBuilder.uniqueBytes(for: selectedRecords)
     }
 
     public var visibleItems: [ClassifiedRecord] {
-        guard !searchText.isEmpty else { return items }
-        return items.filter {
-            $0.path.localizedCaseInsensitiveContains(searchText)
-                || $0.name.localizedCaseInsensitiveContains(searchText)
+        var list = items
+        if !searchText.isEmpty {
+            list = list.filter {
+                $0.path.localizedCaseInsensitiveContains(searchText)
+                    || $0.name.localizedCaseInsensitiveContains(searchText)
+                    || $0.reason.localizedCaseInsensitiveContains(searchText)
+            }
         }
+        switch sortOption {
+        case .sizeDescending:
+            list.sort { $0.allocatedSize > $1.allocatedSize }
+        case .sizeAscending:
+            list.sort { $0.allocatedSize < $1.allocatedSize }
+        case .nameAscending:
+            list.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        case .nameDescending:
+            list.sort { $0.name.localizedStandardCompare($1.name) == .orderedDescending }
+        case .dateDescending:
+            list.sort { ($0.modified ?? .distantPast) > ($1.modified ?? .distantPast) }
+        }
+        return list
     }
 
-    /// Build the plan from the *exact current selection* with live identity
-    /// capture. Selections that cannot be planned are reported, never
-    /// dropped: `CleanupPlanDraft.reconciles` must hold for every run.
+    /// Build the plan from the exact current selection with live identity capture
+    /// and descendant pruning.
     public func buildDraft(previewOnly: Bool,
                            libraryRoots: [String] = [],
                            reviewRoots: [String] = []) -> CleanupPlanDraft {
@@ -125,8 +180,6 @@ public final class ResultsWorkspaceModel: ObservableObject {
 
         for path in selection.sorted() {
             guard let listed = recordsByPath[path] else {
-                // Selection from a previous category/scan that is no longer
-                // in the current result set.
                 unplanned.append((
                     path,
                     NSLocalizedString("plan.skip.not_listed", comment: "") + " \(path)",
@@ -165,46 +218,53 @@ public final class ResultsWorkspaceModel: ObservableObject {
         )
     }
 
-    /// The containment root that actually contains the selection. Picking an
-    /// arbitrary scanned root here is what made cleanup reject every item
-    /// when a scan covered more than one root.
     public func containmentRoot(for paths: [String]) -> String {
         let home = PathSafety.userHome.path
         guard !paths.isEmpty else { return home }
         let roots = ((outcome?.coverage.scannedRoots ?? []) + [home])
             .filter { root in paths.allSatisfy { PathSafety.isPath($0, inside: root) } }
-        // Narrowest root that still contains everything selected.
         return roots.max { $0.count < $1.count } ?? home
     }
 
-    /// Remove the items that moved to the Trash from the results and update
-    /// every total the header shows. Preview runs change nothing.
-    public func applyExecuted(_ result: ExecutedCleanupResult) {
+    /// Remove the items that moved to the Trash from the results and update totals.
+    public func applyExecuted(_ result: ExecutedCleanupResult, appState: AppState? = nil) {
         report = result
         guard !result.previewOnly else { return }
 
         let moved = Set(result.moved)
         guard !moved.isEmpty else { return }
 
-        let removed = items.filter { moved.contains($0.path) }
-        let removedBytes = removed.reduce(Int64(0)) { $0 + $1.allocatedSize }
-        let removedSafeBytes = removed.filter { $0.safetyLevel == .safe }.reduce(Int64(0)) { $0 + $1.allocatedSize }
-        let removedReviewBytes = removed.filter { $0.safetyLevel == .review }.reduce(Int64(0)) { $0 + $1.allocatedSize }
-
-        items.removeAll { moved.contains($0.path) }
+        // Remove moved items and descendants from memory
+        items.removeAll { item in
+            moved.contains(item.path) || moved.contains(where: { parent in PathSafety.isPath(item.path, inside: parent) })
+        }
         selection.subtract(moved)
 
-        if var updated = outcome {
-            updated.itemsScanned = max(0, updated.itemsScanned - removed.count)
-            updated.bytesIndexed = max(0, updated.bytesIndexed - removedBytes)
-            updated.safeBytes = max(0, updated.safeBytes - removedSafeBytes)
-            updated.reviewBytes = max(0, updated.reviewBytes - removedReviewBytes)
-            outcome = updated
-        }
-
-        // Evict from the index too, so a reload cannot bring them back.
         if let scanID = outcome?.scanID {
-            Task { await coordinator.indexStore.deleteRecords(scanID: scanID, paths: Array(moved)) }
+            Task {
+                await coordinator.indexStore.deleteRecordsAndDescendants(scanID: scanID, paths: Array(moved))
+                let totals = await coordinator.indexStore.recalculateTotals(scanID: scanID)
+                await MainActor.run {
+                    if var updated = self.outcome {
+                        updated.itemsScanned = totals.itemsScanned
+                        updated.bytesIndexed = totals.bytesIndexed
+                        updated.safeBytes = totals.safeBytes
+                        updated.reviewBytes = totals.reviewBytes
+                        updated.protectedBytes = totals.protectedBytes
+                        self.outcome = updated
+                        appState?.lastOutcome = updated
+                    }
+                }
+            }
+        } else {
+            let removedBytes = result.movedBytes
+            if var updated = outcome {
+                updated.itemsScanned = max(0, updated.itemsScanned - moved.count)
+                updated.bytesIndexed = max(0, updated.bytesIndexed - removedBytes)
+                updated.safeBytes = max(0, updated.safeBytes - removedBytes)
+                outcome = updated
+                appState?.lastOutcome = updated
+            }
         }
     }
 }
@@ -215,7 +275,6 @@ public struct ResultsWorkspaceView: View {
     @EnvironmentObject private var accessibility: AccessibilityEnvironment
     private let initialOutcome: ScanOutcome
 
-    /// The outcome as it stands now: totals fall as items move to the Trash.
     private var outcome: ScanOutcome { model.outcome ?? initialOutcome }
 
     public init(outcome: ScanOutcome, coordinator: DeepScanCoordinator = .shared) {
@@ -225,19 +284,35 @@ public struct ResultsWorkspaceView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    summaryHeader
-                    categoryTabs
-                    itemList
+            topSummaryBar
+            Divider().overlay(Color.white.opacity(0.08))
+
+            HStack(spacing: 0) {
+                if !model.isRailCollapsed {
+                    collapsibleRail
+                        .frame(width: 220)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                    Divider().overlay(Color.white.opacity(0.08))
                 }
-                .padding(28)
+
+                VStack(spacing: 0) {
+                    listToolbar
+                    Divider().overlay(Color.white.opacity(0.05))
+
+                    // Strictly no page-level scrolling: only this list view scrolls
+                    itemScrollView
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
+
             if model.report != nil {
                 cleanupReportBar
             }
-            bottomBar
+
+            bottomActionBar
         }
+        .frame(minWidth: 980, minHeight: 680)
+        .background(AuroraBackground())
         .onAppear {
             model.load(outcome: outcome)
         }
@@ -260,51 +335,84 @@ public struct ResultsWorkspaceView: View {
         }
     }
 
-    // MARK: - Summary header
+    // MARK: - Top Summary Bar
 
-    private var summaryHeader: some View {
-        HStack(alignment: .center, spacing: 28) {
+    private var topSummaryBar: some View {
+        HStack(alignment: .center, spacing: 20) {
             ReclaimRing(
                 safeBytes: outcome.safeBytes,
                 reviewBytes: outcome.reviewBytes,
                 protectedBytes: outcome.protectedBytes
             )
-            .frame(width: 150, height: 150)
+            .frame(width: 76, height: 76)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("results.summary.title")
-                    .font(.title.weight(.bold))
-                Text(String(format: NSLocalizedString("results.summary.subtitle", comment: ""),
-                            FileUtilities.formattedBytes(outcome.safeBytes + outcome.reviewBytes)))
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
+                    Text("results.summary.title")
+                        .font(.headline.weight(.bold))
                     StatusPill("results.provenance.\(outcome.provenance.rawValue)", kind: .info)
                     StatusPill("results.coverage.\(outcome.coverage.confidence.rawValue)", kind: coverageKind)
                     if outcome.coverage.limitedByPermission {
                         StatusPill("results.coverage.limited", kind: .warning)
                     }
                 }
+                Text(String(format: NSLocalizedString("results.summary.subtitle", comment: ""),
+                            FileUtilities.formattedBytes(outcome.safeBytes + outcome.reviewBytes)))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 if outcome.coverage.limitedByPermission {
-                    Text(outcome.coverage.permissionReason ?? "coverage.limited.reason_not_granted")
-                        .font(.caption)
-                        .foregroundStyle(AuroraPalette.amber)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Button("results.open_permissions") {
-                        PermissionService.shared.openFullDiskAccessSettings()
+                    HStack(spacing: 6) {
+                        Text(outcome.coverage.permissionReason ?? "coverage.limited.reason_not_granted")
+                            .font(.caption2)
+                            .foregroundStyle(AuroraPalette.amber)
+                        Button("results.open_permissions") {
+                            PermissionService.shared.openFullDiskAccessSettings()
+                        }
+                        .buttonStyle(.link)
+                        .font(.caption2)
                     }
-                    .buttonStyle(.link)
-                }
-                if outcome.safeBytes + outcome.reviewBytes == 0 {
-                    Text("results.zero_candidates_note")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+
             Spacer()
-            summaryTiles
+
+            HStack(spacing: 12) {
+                summaryTile("results.tile.scanned", value: "\(outcome.itemsScanned)")
+                summaryTile("results.tile.bytes", value: FileUtilities.formattedBytes(outcome.bytesIndexed))
+                summaryTile("results.tile.elapsed", value: String(format: "%.1fs", outcome.finishedAt.timeIntervalSince(outcome.startedAt)))
+
+                Button {
+                    withAnimation(.easeInOut(duration: accessibility.reduceMotion ? 0 : 0.2)) {
+                        model.isRailCollapsed.toggle()
+                    }
+                } label: {
+                    Image(systemName: model.isRailCollapsed ? "sidebar.left" : "sidebar.leading")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .padding(8)
+                        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                }
+                .buttonStyle(.plain)
+                .help(NSLocalizedString("results.toggle_rail", comment: ""))
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(.ultraThinMaterial)
+    }
+
+    private func summaryTile(_ title: LocalizedStringKey, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
     }
 
     private var coverageKind: StatusPill.Kind {
@@ -316,113 +424,164 @@ public struct ResultsWorkspaceView: View {
         }
     }
 
-    private var summaryTiles: some View {
-        VStack(spacing: 10) {
-            tile("results.tile.scanned", value: "\(outcome.itemsScanned)")
-            tile("results.tile.bytes", value: FileUtilities.formattedBytes(outcome.bytesIndexed))
-            tile("results.tile.elapsed", value: String(format: "%.1fs", outcome.finishedAt.timeIntervalSince(outcome.startedAt)))
-            tile("results.tile.apps", value: "\(outcome.applicationCount)")
-            tile("results.tile.duplicates", value: "\(outcome.duplicateGroupCount)")
-        }
-        .frame(width: 210)
-    }
+    // MARK: - Collapsible Rail
 
-    private func tile(_ title: LocalizedStringKey, value: String) -> some View {
-        HStack {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+    private var collapsibleRail: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(ResultsCategory.allCases) { cat in
+                Button {
+                    withAnimation(.easeOut(duration: accessibility.reduceMotion ? 0 : 0.15)) {
+                        model.category = cat
+                        model.reloadItems()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: cat.systemImage)
+                            .font(.system(size: 13))
+                            .foregroundStyle(model.category == cat ? AuroraPalette.electricPurple : .secondary)
+                            .frame(width: 20)
+                        Text(cat.title)
+                            .font(.callout.weight(model.category == cat ? .semibold : .regular))
+                            .foregroundStyle(model.category == cat ? .primary : .secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(
+                        model.category == cat
+                            ? AnyShapeStyle(AuroraPalette.electricPurple.opacity(0.2))
+                            : AnyShapeStyle(Color.clear),
+                        in: RoundedRectangle(cornerRadius: 8)
+                    )
+                    .overlay {
+                        if model.category == cat {
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(AuroraPalette.electricPurple.opacity(0.4), lineWidth: 1)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
             Spacer()
-            Text(value)
-                .font(.callout.weight(.semibold))
-                .monospacedDigit()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .glassCard()
+        .padding(12)
+        .background(Color.black.opacity(0.15))
     }
 
-    // MARK: - Categories
+    // MARK: - List Toolbar
 
-    private var categoryTabs: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(ResultsCategory.allCases) { category in
+    private var listToolbar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                TextField("results.search_placeholder", text: $model.searchText)
+                    .textFieldStyle(.plain)
+                    .font(.callout)
+                if !model.searchText.isEmpty {
                     Button {
-                        withAnimation(.easeOut(duration: accessibility.reduceMotion ? 0 : 0.2)) {
-                            model.category = category
-                            model.reloadItems()
-                        }
+                        model.searchText = ""
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: category.systemImage)
-                            Text(category.title)
-                        }
-                        .font(.callout.weight(model.category == category ? .semibold : .regular))
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(
-                            model.category == category
-                                ? AnyShapeStyle(AuroraPalette.electricPurple.opacity(0.3))
-                                : AnyShapeStyle(Color.white.opacity(0.06)),
-                            in: Capsule()
-                        )
-                        .overlay {
-                            Capsule().strokeBorder(
-                                model.category == category
-                                    ? AuroraPalette.electricPurple.opacity(0.6)
-                                    : Color.white.opacity(0.08),
-                                lineWidth: 1
-                            )
-                        }
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+            .frame(maxWidth: 280)
+
+            Spacer()
+
+            Picker(selection: $model.sortOption, label: Text("results.sort_label")) {
+                ForEach(ResultsSortOption.allCases) { opt in
+                    Text(opt.title).tag(opt)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(width: 170)
+
+            if model.category == .safe {
+                Button(action: { model.smartSelect() }) {
+                    Label("results.select_all_safe", systemImage: "checkmark.circle")
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
+            } else if model.category == .review {
+                Button(action: { model.selectAllVisible() }) {
+                    Label("results.select_all", systemImage: "checkmark.square")
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
+            }
+
+            if !model.selection.isEmpty {
+                Button(action: { model.deselectAll() }) {
+                    Text("results.deselect_all")
+                }
+                .buttonStyle(.plain)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.02))
     }
 
-    // MARK: - Items
+    // MARK: - Scrollable Items List
 
     @ViewBuilder
-    private var itemList: some View {
-        switch model.category {
-        case .coverage:
-            coverageView
-        case .applications:
-            Text("results.apps_hint")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(.vertical, 24)
-                .frame(maxWidth: .infinity)
-        default:
-            if model.visibleItems.isEmpty {
-                Text("results.empty")
+    private var itemScrollView: some View {
+        ScrollView {
+            switch model.category {
+            case .coverage:
+                coverageView
+                    .padding(16)
+            case .applications:
+                Text("results.apps_hint")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                    .padding(.vertical, 24)
+                    .padding(32)
                     .frame(maxWidth: .infinity)
-            } else {
-                LazyVStack(spacing: 6) {
-                    ForEach(model.visibleItems) { item in
-                        ResultItemRow(
-                            item: item,
-                            isSelected: model.selection.contains(item.path),
-                            selectable: item.safetyLevel != .protected,
-                            onToggle: {
-                                if item.safetyLevel == .protected { return }
-                                if model.selection.contains(item.path) {
-                                    model.selection.remove(item.path)
-                                } else {
-                                    model.selection.insert(item.path)
-                                }
-                            }
-                        )
+            default:
+                if model.visibleItems.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "tray")
+                            .font(.largeTitle)
+                            .foregroundStyle(.tertiary)
+                        Text("results.empty")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(48)
+                    .frame(maxWidth: .infinity)
+                } else {
+                    LazyVStack(spacing: 4) {
+                        ForEach(model.visibleItems) { item in
+                            ResultItemRow(
+                                item: item,
+                                isSelected: model.selection.contains(item.path),
+                                selectable: item.safetyLevel != .protected,
+                                onToggle: {
+                                    if item.safetyLevel == .protected { return }
+                                    if model.selection.contains(item.path) {
+                                        model.selection.remove(item.path)
+                                    } else {
+                                        model.selection.insert(item.path)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    .padding(12)
                 }
             }
         }
     }
+
+    // MARK: - Coverage View
 
     private var coverageView: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -508,17 +667,19 @@ public struct ResultsWorkspaceView: View {
         }
     }
 
-    // MARK: - Bottom bar
+    // MARK: - Bottom Action Bar
 
-    private var bottomBar: some View {
+    private var bottomActionBar: some View {
         HStack(spacing: 16) {
             Label {
                 Text(String(format: NSLocalizedString("results.selected", comment: ""), model.selection.count))
+                    .font(.callout.weight(.medium))
             } icon: {
-                Image(systemName: "checkmark.circle")
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(AuroraPalette.electricPurple)
             }
             Text(FileUtilities.formattedBytes(model.selectedBytes))
-                .monospacedDigit()
+                .font(.callout.monospacedDigit())
                 .foregroundStyle(.secondary)
             Text(LocalizedStringKey(appState.settings.dryRun ? "selection.preview_only" : "selection.will_trash"))
                 .font(.caption)
@@ -526,8 +687,6 @@ public struct ResultsWorkspaceView: View {
 
             Spacer()
 
-            // Deliberate Preview Mode control — cleanup is not permanently
-            // disabled; the user can exit Preview Mode here with confirmation.
             Button {
                 if appState.settings.dryRun {
                     model.showPreviewExitConfirmation = true
@@ -543,19 +702,18 @@ public struct ResultsWorkspaceView: View {
             .buttonStyle(AuroraSecondaryButtonStyle())
             .disabled(model.isCleaning)
 
-            // One honest action. Preview Mode on → "Preview Selected", which
-            // confirms with "Confirm Preview" and moves nothing. Preview Mode
-            // off → "Move Selected to Trash", which revalidates every item and
-            // calls FileManager.trashItem.
             Button {
                 model.showCleanConfirmation = true
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: appState.settings.dryRun ? "eye.fill" : "trash.fill")
                     Text(appState.settings.dryRun ? "results.preview_selected" : "results.move_to_trash")
+                        .font(.callout.weight(.semibold))
                 }
+                .padding(.horizontal, 10)
             }
             .buttonStyle(AuroraPrimaryButtonStyle())
+            .shadow(color: AuroraPalette.electricPurple.opacity(0.35), radius: 6, x: 0, y: 2)
             .disabled(model.selection.isEmpty || model.isCleaning)
             .help(appState.settings.dryRun
                   ? Text("results.preview_selected.help")
@@ -563,17 +721,14 @@ public struct ResultsWorkspaceView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: Rectangle())
+        .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
         }
     }
 
-    // MARK: - Cleanup report
+    // MARK: - Cleanup Report Bar
 
-    /// Exact, self-reconciling report of the last run: what was selected,
-    /// planned, moved or previewed, skipped, failed, the bytes involved and
-    /// the reasons — plus a way to see the moved items in the Trash.
     private var cleanupReportBar: some View {
         let report = model.report
         let previewOnly = report?.previewOnly ?? true
@@ -639,12 +794,8 @@ public struct ResultsWorkspaceView: View {
         NSWorkspace.shared.activateFileViewerSelecting(Array(urls))
     }
 
-    /// Run the confirmed action. Preview Mode decides the mode; the executor
-    /// revalidates every item and only ever calls FileManager.trashItem.
     private func performCleanup() {
         let previewOnly = appState.settings.dryRun
-        // A new run always clears the previous report first: a stale banner
-        // describing an earlier run must never sit next to new counts.
         model.report = nil
         model.cleanupMessage = nil
 
@@ -673,10 +824,8 @@ public struct ResultsWorkspaceView: View {
                 isCancelled: { Task.isCancelled }
             )
             model.isCleaning = false
-            // Removes moved items from the results and updates the totals.
-            model.applyExecuted(result)
+            model.applyExecuted(result, appState: appState)
 
-            // Exact history: only what was really processed, moved, refused.
             if !draft.plan.items.isEmpty {
                 appState.sessionStore.recordCleanup(CleanupHistoryRecord(
                     action: NSLocalizedString("history.action.results", comment: ""),
@@ -690,8 +839,6 @@ public struct ResultsWorkspaceView: View {
                     root: root
                 ))
             }
-            // Always finish the activity — including on cancellation — so the
-            // toolbar never keeps showing a run that is no longer happening.
             appState.endActivity(message: result.summary)
         }
     }
@@ -710,22 +857,35 @@ struct ResultItemRow: View {
                 .disabled(!selectable)
                 .labelsHidden()
 
-            Image(systemName: item.safetyLevel == .safe ? "doc" : "doc.text")
-                .foregroundStyle(.secondary)
+            Image(systemName: item.safetyLevel == .safe ? "doc.fill" : "doc.text.fill")
+                .foregroundStyle(item.safetyLevel == .safe ? AuroraPalette.cyan : .secondary)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
-                    .font(.callout)
+                    .font(.callout.weight(.medium))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text(item.path)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+                HStack(spacing: 6) {
+                    Text(item.reason)
+                        .font(.caption2)
+                        .foregroundStyle(AuroraPalette.amber)
+                        .lineLimit(1)
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text(item.path)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
             }
+            .help(item.path)
+
             Spacer()
+
             SafetyBadge(level: item.safetyLevel)
+
             VStack(alignment: .trailing, spacing: 2) {
                 Text(FileUtilities.formattedBytes(item.allocatedSize))
                     .font(.callout.monospacedDigit())
@@ -739,14 +899,18 @@ struct ResultItemRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(isSelected ? 0.05 : 0.02), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.white.opacity(isSelected ? 0.06 : 0.02), in: RoundedRectangle(cornerRadius: 8))
         .contentShape(Rectangle())
         .onTapGesture {
             if selectable { onToggle() }
         }
         .contextMenu {
-            Button("results.quicklook") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) }
-            Button("results.reveal") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) }
+            Button("results.quicklook") {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
+            }
+            Button("results.reveal") {
+                NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)])
+            }
         }
         .accessibilityElement(children: .combine)
     }

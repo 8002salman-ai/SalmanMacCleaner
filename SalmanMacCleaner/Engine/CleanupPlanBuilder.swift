@@ -11,6 +11,12 @@
 //  UI can report "N selected → M planned, K skipped (why)" instead of a
 //  count that no longer matches the selection bar.
 //
+//  Double-counting prevention:
+//  - Canonicalizes and deduplicates selection paths.
+//  - Prunes descendants: if a parent directory is selected, all descendants
+//    under that directory are removed from the plan and selection.
+//  - Deduplicates identical file identities (device + inode).
+//
 
 import Foundation
 
@@ -41,6 +47,37 @@ public struct CleanupPlanDraft {
 }
 
 public enum CleanupPlanBuilder {
+
+    /// Prune descendant paths so that if a parent folder is selected, its descendants
+    /// are not planned or double-counted separately.
+    public static func pruneDescendantPaths(_ paths: [String]) -> Set<String> {
+        let canonicals = Set(paths.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        var nonDescendants = Set<String>()
+        let sorted = canonicals.sorted { $0.count < $1.count }
+        for path in sorted {
+            let isDescendant = nonDescendants.contains { parent in
+                path != parent && PathSafety.isPath(path, inside: parent)
+            }
+            if !isDescendant {
+                nonDescendants.insert(path)
+            }
+        }
+        return nonDescendants
+    }
+
+    /// Calculate unique, non-overlapping allocated bytes for a set of classified records.
+    public static func uniqueBytes(for records: [ClassifiedRecord]) -> Int64 {
+        let nonDescendantPaths = pruneDescendantPaths(records.map { $0.path })
+        let filtered = records.filter { nonDescendantPaths.contains(URL(fileURLWithPath: $0.path).standardizedFileURL.path) }
+        return filtered.reduce(Int64(0)) { $0 + $1.allocatedSize }
+    }
+
+    /// Calculate unique, non-overlapping bytes for a set of scanned items.
+    public static func uniqueBytes(for items: [ScannedItem]) -> Int64 {
+        let nonDescendantPaths = pruneDescendantPaths(items.map { $0.path })
+        let filtered = items.filter { nonDescendantPaths.contains(URL(fileURLWithPath: $0.path).standardizedFileURL.path) }
+        return filtered.reduce(Int64(0)) { $0 + $1.size }
+    }
 
     /// Build a plan from explicitly selected scan results.
     public static func build(
@@ -80,32 +117,59 @@ public enum CleanupPlanBuilder {
         allowBundles: Bool = false,
         authorizedRoots: [String] = []
     ) -> CleanupPlanDraft {
-        let recordByPath = Dictionary(uniqueKeysWithValues: records.map { ($0.path, $0) })
+        let recordByPath = Dictionary(uniqueKeysWithValues: records.map {
+            (URL(fileURLWithPath: $0.path).standardizedFileURL.path, $0)
+        })
+
+        // 1. Canonicalize selection and deduplicate identical paths
+        var canonicalSelection: [ScannedItem] = []
+        var seenPaths = Set<String>()
+        for item in selection {
+            let canonical = URL(fileURLWithPath: item.path).standardizedFileURL.path
+            guard !seenPaths.contains(canonical) else { continue }
+            seenPaths.insert(canonical)
+            canonicalSelection.append(ScannedItem(path: canonical, size: item.size, isDirectory: item.isDirectory))
+        }
+
+        // 2. Prune descendants if parent directory is selected
+        let nonDescendantPaths = pruneDescendantPaths(canonicalSelection.map { $0.path })
+        let prunedSelection = canonicalSelection.filter { nonDescendantPaths.contains($0.path) }
 
         var items: [PlannedCleanupItem] = []
         var rejections: [(path: String, reason: String, bytes: Int64)] = []
-        var seen = Set<String>()
+        var seenInodes = Set<String>()
         var selectedCount = 0
         var selectedBytes: Int64 = 0
 
-        for item in selection {
-            let canonical = URL(fileURLWithPath: item.path).standardizedFileURL.path
-            // A selection is a set of paths; repeats are the same item.
-            guard !seen.contains(canonical) else { continue }
-            seen.insert(canonical)
+        for item in prunedSelection {
+            let canonical = item.path
             selectedCount += 1
             selectedBytes += item.size
 
             // Only SAFE and REVIEW items may enter a plan; PROTECTED items
             // are rejected by the validator, never planned. Application
             // bundles are admitted only for the explicit uninstaller flow.
-            guard let record = recordByPath[canonical] ?? recordByPath[item.path] else {
+            guard let record = recordByPath[canonical] else {
                 rejections.append((
                     canonical,
                     NSLocalizedString("plan.skip.no_record", comment: "") + " \(canonical)",
                     item.size
                 ))
                 continue
+            }
+
+            // Deduplicate identical file identities (hard links)
+            if record.inode != 0 {
+                let identityKey = "\(record.device)-\(record.inode)"
+                if seenInodes.contains(identityKey) {
+                    rejections.append((
+                        canonical,
+                        NSLocalizedString("plan.skip.duplicate_identity", comment: "") + " \(canonical)",
+                        record.allocatedSize
+                    ))
+                    continue
+                }
+                seenInodes.insert(identityKey)
             }
 
             let isBundle = PathSafety.isAppBundle(canonical)

@@ -5,7 +5,7 @@
 //  Full Disk Access onboarding: explains what FDA enables, what SIP keeps
 //  protected, that macOS requires the user to grant access manually, and the
 //  coverage impact of continuing with a limited scan. Includes
-//  "Open Full Disk Access Settings", "Recheck Permission" and
+//  "Open Full Disk Access Settings", "Check Again", "Quit & Reopen", and
 //  "Continue with Limited Scan" actions.
 //
 
@@ -20,6 +20,7 @@ struct PermissionsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 statusCard
+                rootsCard
                 explanationCard
                 actionsCard
             }
@@ -28,9 +29,7 @@ struct PermissionsView: View {
             .frame(maxWidth: .infinity)
         }
         .onAppear {
-            if permissionService.snapshot.lastCheck == .distantPast {
-                permissionService.recheck()
-            }
+            permissionService.recheck()
         }
     }
 
@@ -51,6 +50,52 @@ struct PermissionsView: View {
                         .foregroundStyle(.tertiary)
                 }
                 Spacer()
+            }
+        }
+        .padding(18)
+        .glassCard()
+    }
+
+    private var rootsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            GlassSectionHeader("permissions.roots_title", systemImage: "folder.badge.gearshape")
+
+            if !permissionService.snapshot.accessibleRoots.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("permissions.accessible_roots")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AuroraPalette.success)
+                    ForEach(permissionService.snapshot.accessibleRoots, id: \.self) { path in
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(AuroraPalette.success)
+                                .font(.caption)
+                            Text(path)
+                                .font(.caption.monospaced())
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                }
+            }
+
+            if !permissionService.snapshot.inaccessibleRoots.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("permissions.inaccessible_roots")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(AuroraPalette.amber)
+                    ForEach(permissionService.snapshot.inaccessibleRoots, id: \.self) { path in
+                        HStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .foregroundStyle(AuroraPalette.amber)
+                                .font(.caption)
+                            Text(path)
+                                .font(.caption.monospaced())
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                }
             }
         }
         .padding(18)
@@ -91,6 +136,13 @@ struct PermissionsView: View {
                 .buttonStyle(AuroraSecondaryButtonStyle())
 
                 Button {
+                    permissionService.quitAndReopen()
+                } label: {
+                    Label("permissions.quit_reopen", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
+
+                Button {
                     appState.module = .deepScan
                 } label: {
                     Label("permissions.continue_limited", systemImage: "forward")
@@ -110,9 +162,10 @@ struct PermissionsView: View {
 
     private var statusKind: StatusPill.Kind {
         switch permissionService.snapshot.fullDiskAccess {
-        case .likelyFullAccess: return .ok
-        case .limitedAccess, .accessDenied: return .warning
-        case .notDetermined: return .info
+        case .granted: return .ok
+        case .limited, .folderOnly: return .warning
+        case .denied: return .warning
+        case .unknown: return .info
         }
     }
 }

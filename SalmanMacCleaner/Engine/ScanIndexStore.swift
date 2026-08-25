@@ -493,14 +493,53 @@ public actor ScanIndexStore {
     /// workspace can never show — or re-select — an item that no longer
     /// exists. Everything else in the scan stays indexed.
     public func deleteRecords(scanID: Int64, paths: [String]) {
+        deleteRecordsAndDescendants(scanID: scanID, paths: paths)
+    }
+
+    /// Evict moved paths and all descendant records under any moved directory,
+    /// preventing stale entries from reappearing after directory trashing.
+    public func deleteRecordsAndDescendants(scanID: Int64, paths: [String]) {
         guard !paths.isEmpty else { return }
         for path in paths {
             let statement = try? db.prepare("DELETE FROM records WHERE scan_id=? AND path=?;")
-            guard let statement else { continue }
-            _ = statement.bindInt(scanID, at: 1)
-            _ = statement.bindText(path, at: 2)
-            _ = try? statement.step()
+            _ = statement?.bindInt(scanID, at: 1)
+            _ = statement?.bindText(path, at: 2)
+            _ = try? statement?.step()
+
+            let prefixPattern = path.hasSuffix("/") ? path + "%" : path + "/%"
+            let descStatement = try? db.prepare("DELETE FROM records WHERE scan_id=? AND path LIKE ?;")
+            _ = descStatement?.bindInt(scanID, at: 1)
+            _ = descStatement?.bindText(prefixPattern, at: 2)
+            _ = try? descStatement?.step()
         }
+    }
+
+    /// Recalculate exact totals from live index records after removals.
+    public func recalculateTotals(scanID: Int64) -> (itemsScanned: Int, bytesIndexed: Int64, safeBytes: Int64, reviewBytes: Int64, protectedBytes: Int64) {
+        var itemsScanned = 0
+        var bytesIndexed: Int64 = 0
+        var safeBytes: Int64 = 0
+        var reviewBytes: Int64 = 0
+        var protectedBytes: Int64 = 0
+
+        guard let statement = try? db.prepare("SELECT safety, allocated_size FROM records WHERE scan_id=?;") else {
+            return (0, 0, 0, 0, 0)
+        }
+        _ = statement.bindInt(scanID, at: 1)
+        while (try? statement.step()) == true {
+            itemsScanned += 1
+            let safety = statement.columnText(0)
+            let size = statement.columnInt(1)
+            bytesIndexed += size
+            if safety == SafetyLevel.safe.rawValue {
+                safeBytes += size
+            } else if safety == SafetyLevel.review.rawValue {
+                reviewBytes += size
+            } else if safety == SafetyLevel.protected.rawValue {
+                protectedBytes += size
+            }
+        }
+        return (itemsScanned, bytesIndexed, safeBytes, reviewBytes, protectedBytes)
     }
 
     // MARK: - Volume event state (incremental scans)

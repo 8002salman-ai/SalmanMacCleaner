@@ -148,9 +148,10 @@ struct SecurityAuditView: View {
 
     private var fdaKind: StatusPill.Kind {
         switch permissionService.snapshot.fullDiskAccess {
-        case .likelyFullAccess: return .ok
-        case .limitedAccess, .accessDenied: return .warning
-        case .notDetermined: return .info
+        case .granted: return .ok
+        case .limited, .folderOnly: return .warning
+        case .denied: return .warning
+        case .unknown: return .info
         }
     }
 

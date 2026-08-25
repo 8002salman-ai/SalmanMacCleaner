@@ -126,6 +126,26 @@ public struct ResolvedScanPlan: Equatable {
 
 public enum ScanPolicy {
 
+    /// Deduplicate scan roots: ensure no granted root is a descendant of another
+    /// granted root in the same traversal plan to prevent double-counting.
+    public static func deduplicateRoots(_ roots: [ScanRoot]) -> [ScanRoot] {
+        var result: [ScanRoot] = []
+        // Sort by path length ascending so broader roots are evaluated first
+        let sorted = roots.sorted { $0.url.path.count < $1.url.path.count }
+
+        for candidate in sorted {
+            let candidatePath = candidate.url.standardizedFileURL.path
+            // If another already accepted root is granted and contains this candidate, skip candidate
+            let alreadyContained = result.contains { existing in
+                existing.granted && PathSafety.isPath(candidatePath, inside: existing.url.standardizedFileURL.path)
+            }
+            if !alreadyContained {
+                result.append(candidate)
+            }
+        }
+        return result
+    }
+
     /// Resolve a scan scope into concrete roots and options.
     /// - Parameters:
     ///   - fdaStatus: the probe result from PermissionService.
@@ -141,7 +161,7 @@ public enum ScanPolicy {
         switch scope.mode {
         case .quick:
             return ResolvedScanPlan(
-                roots: quickRoots(home: home),
+                roots: deduplicateRoots(quickRoots(home: home)),
                 includeHidden: false,
                 includePackageContents: false,
                 hashDuplicates: false,
@@ -156,8 +176,9 @@ public enum ScanPolicy {
             )
 
         case .balanced:
+            let combined = quickRoots(home: home) + [homeRoot(home)]
             return ResolvedScanPlan(
-                roots: quickRoots(home: home) + [homeRoot(home)],
+                roots: deduplicateRoots(combined),
                 includeHidden: false,
                 includePackageContents: false,
                 hashDuplicates: scope.hashDuplicates,
@@ -197,7 +218,7 @@ public enum ScanPolicy {
                 roots.append(authorizedFolderRoot(folder))
             }
             return ResolvedScanPlan(
-                roots: roots,
+                roots: deduplicateRoots(roots),
                 includeHidden: true,
                 includePackageContents: scope.includePackageContents,
                 hashDuplicates: scope.hashDuplicates,
@@ -220,7 +241,7 @@ public enum ScanPolicy {
                 }
             }
             return ResolvedScanPlan(
-                roots: roots,
+                roots: deduplicateRoots(roots),
                 includeHidden: scope.includeHiddenFiles,
                 includePackageContents: scope.includePackageContents,
                 hashDuplicates: scope.hashDuplicates,
@@ -282,7 +303,7 @@ public enum ScanPolicy {
         fdaStatus: FullDiskAccessStatus
     ) -> ScanRoot {
         let url = URL(fileURLWithPath: mountPoint, isDirectory: true)
-        let fdaAvailable = fdaStatus == .likelyFullAccess
+        let fdaAvailable = (fdaStatus == .granted || fdaStatus == .likelyFullAccess)
 
         let notGrantedReason: String?
         if volume == nil {
@@ -323,7 +344,7 @@ public enum ScanPolicy {
         let notGrantedReason: String?
         if !readable {
             notGrantedReason = NSLocalizedString("coverage.reason.applications_unreadable", comment: "")
-        } else if fdaStatus != .likelyFullAccess {
+        } else if fdaStatus != .granted && fdaStatus != .likelyFullAccess {
             // /Applications is inside a protected root; without FDA the
             // inventory service still discovers names, but full traversal
             // is skipped.

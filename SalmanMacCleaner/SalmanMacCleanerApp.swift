@@ -15,6 +15,7 @@ struct SalmanMacCleanerApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var accessibility = AccessibilityEnvironment.shared
     @StateObject private var permissionService = PermissionService.shared
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -24,6 +25,11 @@ struct SalmanMacCleanerApp: App {
                 .environmentObject(permissionService)
                 .frame(minWidth: 1100, minHeight: 720)
                 .preferredColorScheme(appState.settings.appearance.colorScheme)
+                .onChange(of: scenePhase) { newPhase in
+                    if newPhase == .active {
+                        permissionService.recheck()
+                    }
+                }
         }
         .defaultSize(width: 1440, height: 900)
         .windowStyle(.automatic)

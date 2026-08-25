@@ -143,11 +143,11 @@ struct DeepScanView: View {
     private var permissionWarning: String? {
         let status = PermissionService.shared.snapshot.fullDiskAccess
         switch status {
-        case .likelyFullAccess:
+        case .granted:
             return nil
-        case .limitedAccess, .accessDenied:
+        case .limited, .folderOnly, .denied:
             return NSLocalizedString("hero.deep_scan.permission", comment: "")
-        case .notDetermined:
+        case .unknown:
             return NSLocalizedString("hero.deep_scan.permission_not_determined", comment: "")
         }
     }

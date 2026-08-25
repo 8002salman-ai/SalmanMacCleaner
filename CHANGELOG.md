@@ -5,6 +5,34 @@ All notable changes to Salman Mac Cleaner are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] - 2026-08-25
+
+### Fixed
+
+- **Full Disk Access fresh probing, instant refresh and 5 distinct states.**
+  - Replaced stale permission logic with non-destructive directory listing and file handle probes on known TCC locations (`~/Library/Safari`, `~/Library/Messages`, `~/Library/Mail`, `~/Library/Suggestions`, `~/Library/PersonalizationPortrait`) and standard user roots (`~`, `~/Library`, `~/Library/Caches`, `~/Library/Logs`, `~/Library/Application Support`, `/Applications`).
+  - Distinguishes Granted, Limited, Folder-only, Denied, and Unknown states.
+  - Automatic refresh on launch, scene activation (`scenePhase == .active`), Permissions view appearance, and return from System Settings (`NSApplication.didBecomeActiveNotification`), plus manual "Check Again" button.
+  - Added last checked timestamp, accessible/inaccessible roots breakdown, Open Settings, Check Again, and Quit & Reopen action. All badges and status pills refresh immediately.
+- **Cleanup accounting, root deduplication and exact reconciliation.**
+  - Diagnosed and fixed the 2.69–3.3 GB vs 47.5 MB accounting discrepancy: removed overlapping roots in `ScanPolicy.resolve`, pruned descendant paths when parent folders are selected to prevent double counting, canonicalized file paths, and deduplicated identical file identities (hard links).
+  - Count moved bytes strictly when `FileManager.trashItem` succeeds; exact reconciliation enforced: `selected = moved + failed + skipped + notProcessed`.
+  - Post-cleanup index eviction for moved directories and all descendants, database recalculation of category totals, UI item removal, and updated `AppState.lastOutcome`.
+  - Preserved strict Trash-only safety: no `rm`, `sudo`, permanent deletion, emptying Trash, SIP bypass, symlink traversal, or system path modification.
+- **Compact native SwiftUI glass workspace for Results Workspace.**
+  - Replaced oversized white window with a compact glass workspace (approx 980x680 minimum).
+  - Eliminated page-level scrolling; only the result list container scrolls.
+  - Added collapsible category rail, search/sort toolbar (Size, Name, Date), rows with checkbox, icon, name, full path tooltip, source, size, safety badge, and context actions (Reveal in Finder, Quick Look).
+  - Added sticky bottom glass action bar with selected count, unique bytes, Preview toggle, and glowing rounded Clean / Move to Trash button with Aurora styling.
+- **Space Lens from actual measured inventory.**
+  - Replaced blank / Zero KB display with explicit states: Not scanned, Scanning, Partial, Denied, and Measured — never displaying Zero KB for an unscanned root.
+  - Added real-time progress: current path, files scanned, bytes indexed, elapsed time, inaccessible paths count, and responsive cancellation.
+  - Bounded concurrency, no symlink traversal, depth bounding, and persisted inventory cache with invalidation on rescan.
+  - Proportional bubble visualization in Canvas, synchronized list, drill-down, breadcrumbs bar, Back/Forward navigation history, hover tooltip details, search, sort, and Reveal in Finder. System folders protected and personal files never auto-selected.
+- **Scan performance & safety test coverage.**
+  - Hashing scoped strictly to same-size duplicate candidates; deduplicated scan roots; batched SQLite transactions; throttled UI updates off the main actor.
+  - Added deterministic unit tests for parent-child double counting pruning, canonical duplicate paths, hard link deduplication, successful/failed Trash move reconciliation, cleanup rescan & index eviction, regenerated cache protection, FDA refresh & states, Space Lens explicit states, proportional bubble packing, and system path protections.
+
 ## [1.1.1] - 2026-08-25
 
 ### Fixed
