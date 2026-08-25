@@ -4,14 +4,28 @@ Salman Mac Cleaner is built to be the *safest* cleaner on your Mac. This documen
 
 ## Design guarantees
 
-1. **Preview-first.** Dry-run mode is ON by default. Every cleanup can be previewed without touching the filesystem.
+1. **Preview-first.** Preview Mode is ON by default. Every cleanup can be previewed without touching the filesystem, and exiting Preview Mode is a deliberate, confirmed user action.
 2. **Trash-only removal.** The only destructive API used anywhere in the codebase is `FileManager.trashItem`. The app never permanently deletes files and never empties the Trash.
-3. **No shell, no root.** The app never uses `sudo`, `rm`, `unlink`, shell commands, `Process`, `NSTask`, `system()`, `popen()`, `bash`, `zsh`, `curl` or `wget`. Grep the source: there are zero such call sites.
-4. **No network.** The app performs no network requests of any kind — no analytics, no telemetry, no phoning home.
-5. **No Full Disk Access / admin required.** The core app runs in a sandbox with only user-selected file access. It does not request or require Full Disk Access.
-6. **Explicit selection + second confirmation.** Only user-ticked items are ever passed to the cleanup engine, after a confirmation dialog.
-7. **Double validation.** Every path is validated when discovered and revalidated immediately before any mutation (TOCTOU protection).
-8. **Read-only Startup Manager.** Version 1 never modifies login items, launch agents or launch daemons.
+3. **Three-layer cleanup.** Inventory scanning → `CleanupPlanBuilder` (immutable plan with expected identity) → `CleanupSafetyValidator` (TOCTOU revalidation immediately before every action) → `CleanupExecutor` (trash-only). Changed symlinks, changed inodes, changed owners and changed volumes are all rejected.
+4. **No shell, no root.** The app never uses `sudo`, `rm`, `unlink`, shell commands, `Process`, `NSTask`, `system()`, `popen()`, `bash`, `zsh`, `curl` or `wget`. A CI validator asserts this on every run.
+5. **No network.** The app performs no network requests of any kind — no analytics, no telemetry, no phoning home. (Sparkle is the sole exception and only when a real signed feed is configured.)
+6. **No Full Disk Access / admin required.** The core app runs in a sandbox with only user-selected file access; Full Disk Access is granted by the user in System Settings and probed honestly (likely/limited/not determined/denied).
+7. **Explicit selection + second confirmation.** Only user-ticked items are ever passed to the cleanup engine, after a confirmation dialog.
+8. **Double validation.** Every path is validated when discovered and revalidated immediately before any mutation (TOCTOU protection).
+9. **Read-only Startup Manager.** Version 1 never modifies login items, launch agents or launch daemons.
+10. **Honest coverage.** Scans report scanned/partial/denied/SIP-protected/skipped roots with precise wording; "Entire Mac scanned" is never displayed unless true.
+
+## Engine safety layers
+
+| Layer | Protection |
+| --- | --- |
+| `TraversalPolicy` | FSEvents internals (`.fseventsd`, `.Spotlight-V100`), Time Machine, packages, hidden files, cross-volume descent, symlinks |
+| `JunkClassifier` | Three-level classification — SAFE (allowlist + regenerable + not in use), REVIEW (never auto-selected), PROTECTED (hard-blocked) |
+| `ScanIndexStore` | SQLite persistence with schema migrations, checkpoints, root-granularity resume |
+| `IncrementalScanSupport` | Public FSEvents APIs only; event history invalidation forces full rescan; `.fseventsd` is never read |
+| `ResidualCorrelationEngine` | Exact bundle/container/preference/saved-state identifiers; loose substring matching forbidden |
+| `DuplicatePipeline` | Size → sample → streaming SHA-256 → inode identity; hard links never counted as reclaimable |
+| `VolumeDiscoveryService` | Network/cloud/read-only/external volumes require explicit opt-in; never descends into a second mounted volume |
 
 ## Protected data
 
@@ -52,10 +66,17 @@ We aim to acknowledge reports within 7 days and resolve confirmed issues within 
 
 ## Compliance checklist
 
-The repo ships `Tools/validate_project.py`, which asserts the structural guarantees (no forbidden APIs, all files present and non-empty, project references valid, tests present). Run it in CI:
+The repo ships `Tools/validate_project.py` (structure, references, forbidden
+APIs, placeholders), `Tools/parse_check.py` (tree-sitter syntax parse of every
+Swift file) and `Tools/xref_check.py` (heuristic cross-reference check). CI
+runs them together with the unit-test suite:
 
 ```bash
 python3 Tools/validate_project.py
+pip install tree-sitter tree-sitter-swift && python3 Tools/parse_check.py
+python3 Tools/xref_check.py
 ```
 
-CI should also run the unit tests (`SalmanMacCleanerTests`) on macOS runners.
+CI also runs the unit tests (`SalmanMacCleanerTests`) on macOS runners —
+including the fixture-based end-to-end inventory → plan → preview → execute
+flow that proves unselected and protected files remain untouched.
