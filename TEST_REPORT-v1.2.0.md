@@ -92,24 +92,17 @@ Fixed in this pass:
 
 ## 7. Verification run — honest status
 
-Executed in this sandbox (Linux, no macOS GUI):
-- ✅ `git status` / branch / latest commit inspection.
-- ✅ `git diff --check` — clean.
-- ✅ `plistlib` parse of `Info.plist` — `8002CleanUp`, `$(MARKETING_VERSION)`.
-- ✅ `Localizable.strings` — no duplicate keys (1033 keys).
-- ✅ Balance/integrity checks on `project.pbxproj` and every changed Swift file.
-- ✅ Static review of all 20 modules for blank/stuck/zero-KB states.
+Executed locally on the Apple Silicon Mac:
+- ✅ `git diff --check` — clean before the local fix.
+- ✅ Native Xcode build succeeded for macOS Debug.
+- ✅ Full XCTest suite passed after correcting the version-badge tooltip consistency test.
+- ✅ Targeted `AppIdentityTests` passed.
+- ✅ Built product metadata: `8002CleanUp`, version `1.2.0`, build `8`.
 
-**Blockers (exact):**
-- This sandbox has no Xcode, no Swift toolchain and no macOS (`xcodebuild`
-  and `swift` are not installed; host is Linux x86_64). The full XCTest suite,
-  `swift build` / `xcodebuild` and manual per-module UI checks **could not be
-  executed here**.
-- The last verified suite run on macOS (per repo reports) was 147 tests, 0
-  failures at v1.1.6; the v1.1.7 report states a passing suite on Apple Silicon.
-  The new tests (3 files, ~16 new test methods) must be run on a macOS host
-  before release — command:
-  `xcodebuild test -project SalmanMacCleaner.xcodeproj -scheme SalmanMacCleaner -destination 'platform=macOS'`
+The Arena Linux report was not sufficient for native verification; this local
+Mac run is the authoritative build/test result. Remaining compiler output is
+warning-only Swift concurrency/API-deprecation guidance and did not fail the
+build or tests.
 
 No cleanup, no Trash move, no sudo and no system modification was performed
 during this pass by the tooling (no macOS available); all destructive paths

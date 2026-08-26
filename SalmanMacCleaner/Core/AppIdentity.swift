@@ -32,6 +32,6 @@ public enum AppIdentity {
 
     /// Tooltip text for the version badge.
     public static var helpText: String {
-        "\(displayName) version \(shortVersion) (\(buildNumber))"
+        "\(displayName) version \(versionBadge)"
     }
 }
