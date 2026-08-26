@@ -69,10 +69,11 @@ final class PathSafetyTests: XCTestCase {
         XCTAssertFalse(PathSafety.isInsidePersonalDirectory(PathSafety.userHome.path + "/tmpfiles"))
     }
 
-    func testPersonalDirectoryComponentsAreProtectedEverywhere() {
+    func testProtectedComponentsAndTopLevelPersonalPolicy() {
         XCTAssertTrue(PathSafety.containsProtectedComponent(PathSafety.userHome.path + "/Desktop/sub"))
         XCTAssertTrue(PathSafety.containsProtectedComponent("/whatever/Documents/x"))
-        XCTAssertFalse(PathSafety.containsProtectedComponent(PathSafety.userHome.path + "/tmp/test"))
+        XCTAssertFalse(PathSafety.containsTopLevelProtectedComponent("/whatever/Documents/x"))
+        XCTAssertFalse(PathSafety.containsProtectedComponent("/Users/test/tmp/test"))
     }
 
     // MARK: - Traversal

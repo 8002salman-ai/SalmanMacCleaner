@@ -171,7 +171,7 @@ struct TrashBinsView: View {
                                     Label("trash.restore", systemImage: "arrow.uturn.left")
                                 }
                                 Button(action: { selectForPermanentDelete(entry: entry) }) {
-                                    Label("trash.delete_permanently", systemImage: "trash.fill", action: {})
+                                    Label("trash.delete_permanently", systemImage: "trash.fill")
                                 }
                                 .foregroundStyle(.red)
                             }
@@ -190,7 +190,7 @@ struct TrashBinsView: View {
 
                         if !selectedForPermanentDelete.isEmpty {
                             Button("trash.permanent_delete_selected") {
-                                performPermanentDelete(selected: Array(selectedForPermanentDelete))
+                                performPermanentDelete(paths: Array(selectedForPermanentDelete))
                             }
                             .buttonStyle(.borderedProminent)
                             .foregroundStyle(.red)
@@ -306,8 +306,11 @@ struct TrashBinsView: View {
 
             do {
                 if entry.isDirectory {
-                    try FileManager.default.createDirectoryIfNeeded(at: destURL.deletingLastPathComponent())
-                    try FileManager.default.item(atPath: entry.path).moveItem(to: sourceURL)
+                    try FileManager.default.createDirectory(
+                        at: sourceURL.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try FileManager.default.moveItem(at: destURL, to: sourceURL)
                 } else {
                     try FileManager.default.moveItem(at: destURL, to: sourceURL)
                 }
@@ -339,8 +342,11 @@ struct TrashBinsView: View {
 
         do {
             if entry.isDirectory {
-                try FileManager.default.createDirectoryIfNeeded(at: destURL.deletingLastPathComponent())
-                try FileManager.default.item(atPath: entry.path).moveItem(to: sourceURL)
+                try FileManager.default.createDirectory(
+                    at: sourceURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try FileManager.default.moveItem(at: destURL, to: sourceURL)
             } else {
                 try FileManager.default.moveItem(at: destURL, to: sourceURL)
             }
@@ -365,24 +371,16 @@ struct TrashBinsView: View {
     // MARK: - Permanent delete
 
     private func performPermanentDelete(paths: [String]) {
-        // Never permanently delete protected system files or user project files
-        let protectedPaths = [
-            "/System/",
-            "/Library/",
-            "/Applications/",
-            PathSafety.userHome.path + "/"
-        ]
-
-        for path in paths {
-            let lowercased = path.lowercased()
-            if protectedPaths.contains(where: { lowercased.hasPrefix($0) }) {
-                // Skip protected files, show warning
-                continue
+        let trashRoots = ([NSHomeDirectory() + "/.Trash"] + trashMounts())
+            .map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL.path }
+        let safePaths = paths.filter { path in
+            let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+            return trashRoots.contains { root in
+                standardized.hasPrefix(root + "/")
             }
         }
 
-        // Perform permanent deletion
-        for path in paths {
+        for path in safePaths {
             let url = URL(fileURLWithPath: path, isDirectory: false)
             do {
                 try FileManager.default.removeItem(at: url)
@@ -398,8 +396,10 @@ struct TrashBinsView: View {
         appState.history.record(HistoryEntry(
             action: "trash.permanently_deleted",
             category: "trash",
-            itemCount: paths.count,
-            bytes: totalBytes,
+            itemCount: safePaths.count,
+            bytes: entries.filter { safePaths.contains($0.path) }.reduce(0) {
+                CleanupAccounting.adding($0, $1.size)
+            },
             dryRun: false,
             root: NSHomeDirectory() + "/.Trash"
         ))
@@ -412,17 +412,11 @@ struct TrashBinsView: View {
         // Get all paths
         let allPaths = entries.map { $0.path }
 
-        // Never permanently delete protected system files
-        let protectedPaths = [
-            "/System/",
-            "/Library/",
-            "/Applications/",
-            PathSafety.userHome.path + "/"
-        ]
-
+        let trashRoots = ([NSHomeDirectory() + "/.Trash"] + trashMounts())
+            .map { URL(fileURLWithPath: $0, isDirectory: true).standardizedFileURL.path }
         let safePaths = allPaths.filter { path in
-            let lowercased = path.lowercased()
-            return !protectedPaths.contains(where: { lowercased.hasPrefix($0) })
+            let standardized = URL(fileURLWithPath: path).standardizedFileURL.path
+            return trashRoots.contains { root in standardized.hasPrefix(root + "/") }
         }
 
         // Perform permanent deletion of safe paths
@@ -440,7 +434,7 @@ struct TrashBinsView: View {
 
         // Record in history
         appState.history.record(HistoryEntry(
-            action: "trash.emoved",
+            action: "trash.emptied",
             category: "trash",
             itemCount: safePaths.count,
             bytes: totalBytes,
