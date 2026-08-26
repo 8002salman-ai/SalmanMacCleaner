@@ -23,7 +23,7 @@ struct SalmanMacCleanerApp: App {
                 .environmentObject(appState)
                 .environmentObject(accessibility)
                 .environmentObject(permissionService)
-                .frame(minWidth: 1100, minHeight: 720)
+                .frame(minWidth: 980, minHeight: 640)
                 .preferredColorScheme(appState.settings.appearance.colorScheme)
                 .onChange(of: scenePhase) { newPhase in
                     if newPhase == .active {
@@ -31,7 +31,7 @@ struct SalmanMacCleanerApp: App {
                     }
                 }
         }
-        .defaultSize(width: 1440, height: 900)
+        .defaultSize(width: 1180, height: 760)
         .windowStyle(.automatic)
         .commands {
             CommandGroup(replacing: .newItem) {}

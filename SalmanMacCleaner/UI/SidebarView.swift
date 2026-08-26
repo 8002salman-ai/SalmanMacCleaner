@@ -38,6 +38,11 @@ struct SidebarView: View {
                 }
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
+                // Keep the first scrollable row below the macOS title-bar
+                // controls when the sidebar is scrolled.
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    Color.clear.frame(height: 10)
+                }
             }
         }
         .safeAreaInset(edge: .bottom) {
@@ -104,14 +109,14 @@ struct SidebarRow: View {
             .shadow(color: isSelected ? AuroraPalette.electricPurple.opacity(0.6) : .clear, radius: 6)
 
             Text(module.title)
-                .font(.callout.weight(isSelected ? .semibold : .regular))
+                .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
                 .foregroundStyle(AuroraPalette.primaryText(colorScheme, increaseContrast: false))
                 .lineLimit(1)
 
             Spacer(minLength: 4)
         }
         .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.vertical, 6)
         .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .background {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -170,7 +175,7 @@ struct AppIdentityHeader: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(AppIdentity.displayName)
-                    .font(.headline.weight(.bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(AuroraPalette.primaryText(colorScheme, increaseContrast: false))
                     .lineLimit(1)
                 Text(AppIdentity.versionBadge)

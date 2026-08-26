@@ -17,7 +17,7 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 240, ideal: 270, max: 300)
+                .navigationSplitViewColumnWidth(min: 228, ideal: 252, max: 282)
         } detail: {
             ZStack {
                 AuroraBackground(seed: appState.module.artworkSeed) {
