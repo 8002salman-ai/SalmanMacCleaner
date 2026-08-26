@@ -27,10 +27,10 @@ final class AppIdentityTests: XCTestCase {
 
     func testVersionIsNextReleaseAfter117() throws {
         try ensureHostedInApp()
-        // 1.1.7 (build 7) was the previous installed version; the next
-        // release must be 1.2.0 (build 8).
+        // 1.1.7 (build 7) was the previous installed version; this release
+        // is 1.2.0 (build 9) after the Smart Care performance fix.
         XCTAssertEqual(AppIdentity.shortVersion, "1.2.0")
-        XCTAssertEqual(AppIdentity.buildNumber, "8")
+        XCTAssertEqual(AppIdentity.buildNumber, "9")
     }
 
     func testVersionBadgeIsVisibleAndConsistent() {

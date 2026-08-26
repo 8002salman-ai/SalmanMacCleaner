@@ -323,14 +323,28 @@ public enum HealthCheckService {
 
     private static func applicationsFactor(isCancelled: @escaping () -> Bool) throws -> HealthCheckFactor {
         try checkCancellation(isCancelled)
-        let apps = ApplicationInventoryService.discoverApplications()
+        // Smart Care only needs a bounded application count. The full
+        // Applications inventory also measures every bundle, validates code
+        // signatures and queries metadata; doing that here made the one-click
+        // health check appear stuck at 50% on Macs with many large apps.
+        var appPaths = Set<String>()
+        for root in ApplicationInventoryService.discoveryRoots() {
+            try checkCancellation(isCancelled)
+            for app in ApplicationInventoryService.appBundles(at: root, maxDepth: 3) {
+                appPaths.insert(app.standardizedFileURL.path)
+            }
+        }
+        let runningBundle = Bundle.main.bundleURL.standardizedFileURL
+        if runningBundle.pathExtension.lowercased() == "app" {
+            appPaths.insert(runningBundle.path)
+        }
         try checkCancellation(isCancelled)
         return HealthCheckFactor(
             id: .applications,
-            status: apps.isEmpty ? .unavailable : .good,
-            summary: String(format: NSLocalizedString("health.apps.summary", comment: ""), apps.count),
+            status: appPaths.isEmpty ? .unavailable : .good,
+            summary: String(format: NSLocalizedString("health.apps.summary", comment: ""), appPaths.count),
             evidence: NSLocalizedString("health.apps.evidence", comment: ""),
-            measuredCount: apps.count
+            measuredCount: appPaths.count
         )
     }
 
