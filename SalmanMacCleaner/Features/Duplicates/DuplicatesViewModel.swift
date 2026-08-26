@@ -31,7 +31,7 @@ final class DuplicatesViewModel: ObservableObject {
         // Duplicate detection is useful for regenerable stores by default, not
         // for personal documents. Personal folders remain available only after
         // an explicit folder-pick grant.
-        let defaults = ScanPolicy.quickLibraryRoots(home: PathSafety.userHome)
+        let defaults = ScanPolicy.defaultDuplicateRoots(home: PathSafety.userHome)
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
         roots = defaults.filter {
             FileManager.default.fileExists(atPath: $0.path)

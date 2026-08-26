@@ -212,6 +212,16 @@ final class VolumeClassificationTests: XCTestCase {
         XCTAssertTrue(ScanPolicy.volumeNeedsOptIn(readOnly))
     }
 
+    func testDuplicateFinderUsesVisibleUserFoldersByDefault() {
+        let home = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
+        let roots = ScanPolicy.defaultDuplicateRoots(home: home)
+
+        XCTAssertTrue(roots.contains("/Users/tester/Downloads"))
+        XCTAssertTrue(roots.contains("/Users/tester/Documents"))
+        XCTAssertTrue(roots.contains("/Users/tester/Desktop"))
+        XCTAssertFalse(roots.contains("/Users/tester/Library/Caches"))
+    }
+
     func testTimeMachineDetection() {
         let tm = volume(isLocal: true, isInternal: true, isReadOnly: false, isRemovable: false, isRoot: false)
         XCTAssertFalse(VolumeDiscoveryService.isTimeMachineVolume(tm))

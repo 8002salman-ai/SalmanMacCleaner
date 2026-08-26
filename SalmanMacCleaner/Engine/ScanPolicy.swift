@@ -396,6 +396,20 @@ public enum ScanPolicy {
         ]
     }
 
+    /// Safe, user-visible folders used by the Duplicate Finder when no custom
+    /// folder has been selected. These are scan roots only; cleanup still
+    /// requires explicit file selection and confirmation.
+    public static func defaultDuplicateRoots(home: URL) -> [String] {
+        [
+            home.path + "/Desktop",
+            home.path + "/Documents",
+            home.path + "/Downloads",
+            home.path + "/Pictures",
+            home.path + "/Movies",
+            home.path + "/Music"
+        ]
+    }
+
     /// REVIEW junk locations (developer caches etc.) — never auto-selected.
     public static func defaultReviewRoots(home: URL) -> [String] {
         [
