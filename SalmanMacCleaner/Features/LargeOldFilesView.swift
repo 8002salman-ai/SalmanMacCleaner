@@ -52,6 +52,7 @@ struct LargeOldFilesView: View {
                 )
                 .sheet(isPresented: $showPicker) {
                     FolderPickerView(message: "large_old.picker.message") { url in
+                        showPicker = false
                         if let url {
                             chosenFolder = url
                             scan(url)
@@ -99,6 +100,7 @@ struct LargeOldFilesView: View {
                     .buttonStyle(AuroraSecondaryButtonStyle())
                     .sheet(isPresented: $showPicker) {
                         FolderPickerView(message: "large_old.picker.message") { url in
+                            showPicker = false
                             if let url {
                                 chosenFolder = url
                                 scan(url)

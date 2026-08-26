@@ -82,6 +82,7 @@ public enum FolderValidationError: LocalizedError, Equatable {
 /// the picked URL (nil on cancel).
 @MainActor
 public struct FolderPickerView: View {
+    @Environment(\.dismiss) private var dismiss
     let message: LocalizedStringKey
     let onPick: (URL?) -> Void
 
@@ -102,6 +103,7 @@ public struct FolderPickerView: View {
             Button {
                 let url = FolderPicker.chooseFolder()
                 onPick(url)
+                dismiss()
             } label: {
                 Label(NSLocalizedString("folder.picker.choose", comment: ""), systemImage: "folder")
             }
@@ -109,6 +111,7 @@ public struct FolderPickerView: View {
             .keyboardShortcut(.defaultAction)
             Button(NSLocalizedString("common.cancel", comment: "")) {
                 onPick(nil)
+                dismiss()
             }
             .keyboardShortcut(.cancelAction)
         }
