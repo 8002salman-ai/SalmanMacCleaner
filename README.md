@@ -1,7 +1,7 @@
-# Salman Mac Cleaner
+# 8002CleanUp
 
 A premium, privacy-respecting native macOS maintenance application built with
-SwiftUI. Salman Mac Cleaner finds junk, large files, duplicates, developer
+SwiftUI. 8002CleanUp finds junk, large files, duplicates, developer
 caches, leftovers and more — and it does so **preview-first**: nothing is ever
 removed automatically, and every removal goes to the Trash (never permanent).
 

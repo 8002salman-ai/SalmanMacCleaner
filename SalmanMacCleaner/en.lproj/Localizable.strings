@@ -1,7 +1,7 @@
-/* Salman Mac Cleaner — English localization. */
+/* 8002CleanUp — English localization. */
 
 /* App */
-"app.name" = "Salman Mac Cleaner";
+"app.name" = "8002CleanUp";
 
 /* Navigation */
 "nav.dashboard" = "Dashboard";
@@ -28,6 +28,7 @@
 
 /* Common */
 "common.cancel" = "Cancel";
+"common.retry" = "Retry";
 "common.clear" = "Clear";
 "common.sort" = "Sort";
 "common.sort_by" = "Sort by";
@@ -154,6 +155,17 @@
 "duplicates.error.hash" = "Could not hash:";
 "duplicates.phase.enumerate" = "Enumerating files…";
 "duplicates.phase.done" = "Duplicate analysis complete.";
+"duplicates.phase.prepare" = "Preparing scan…";
+"duplicates.scan_stats" = "%d files · %@ · elapsed %@";
+"duplicates.cancel_scan" = "Cancel Scan";
+"duplicates.row_detail" = "Modified %@ · %@";
+"duplicates.sort" = "Sort";
+"duplicates.sort.reclaimable" = "Reclaimable space";
+"duplicates.sort.size" = "File size";
+"duplicates.sort.copies" = "Number of copies";
+"duplicates.sort.path" = "Path";
+"duplicates.select_all" = "Select All";
+"duplicates.deselect_all" = "Deselect All";
 "duplicates.prompt.title" = "Choose a folder to scan";
 "duplicates.prompt.message" = "Duplicate Finder only scans folders you select. Files are compared by exact content hash — never by name alone.";
 "duplicates.empty.title" = "No duplicates found";
@@ -166,8 +178,8 @@
 "duplicates.clean_done" = "Moved %d duplicate file(s) to the Trash.";
 "duplicates.confidence.exact" = "Exact hash match";
 "duplicates.confirm.reason" = "Same size and full SHA-256 content match; keeper remains.";
-"duplicates.coverage.complete" = "Measured %d files across %d directories.";
-"duplicates.coverage.partial" = "Partial coverage: measured %d files across %d directories; %d paths were inaccessible or the scan bounds were reached.";
+"duplicates.coverage.complete" = "Measured %d files (%@) across %d directories.";
+"duplicates.coverage.partial" = "Partial coverage: measured %d files (%@) across %d directories; %d paths were inaccessible or the scan bounds were reached.";
 "duplicates.coverage.partial_empty" = "No duplicates were found in the measured portion. Review the partial-coverage notice before drawing conclusions.";
 
 /* Developer caches */
@@ -286,7 +298,7 @@
 
 /* Menu */
 "menu.dashboard" = "Dashboard";
-"menu.readme" = "Salman Mac Cleaner Help";
+"menu.readme" = "8002CleanUp Help";
 
 /* Aurora upgrade additions */
 "about.architecture" = "Native Apple Silicon (arm64) · macOS 13+";
@@ -396,7 +408,7 @@
 "hero.app_leftovers.c3.d" = "HIGH, MEDIUM and CAUTIOUS — only HIGH is suggested";
 "hero.app_leftovers.c3.t" = "Confidence labels";
 "hero.app_leftovers.scope" = "Estimated scope: 8 support roots compared against the installed-app inventory";
-"hero.app_updater.benefit" = "Keep Salman Mac Cleaner updated with signed, verified releases — or review third-party app status honestly.";
+"hero.app_updater.benefit" = "Keep 8002CleanUp updated with signed, verified releases — or review third-party app status honestly.";
 "hero.app_updater.c1.d" = "Sparkle 2 with EdDSA + Developer ID verification";
 "hero.app_updater.c1.t" = "Signed updates";
 "hero.app_updater.c2.d" = "Updates install only after signature verification";
@@ -567,6 +579,14 @@
 "junk.xcode_device_support" = "Xcode Device Support";
 "junk.xcode_index" = "Xcode Index";
 "large_old.choose_other" = "Choose Other Folder";
+"large_old.scan_again" = "Scan This Folder";
+"large_old.sort" = "Sort";
+"large_old.sort.size_desc" = "Largest first";
+"large_old.sort.size_asc" = "Smallest first";
+"large_old.sort.newest" = "Newest modified first";
+"large_old.sort.oldest" = "Oldest modified first";
+"large_old.sort.name" = "Name";
+"large_old.scan_stats" = "%d entries visited · %@ found · elapsed %@";
 "large_old.clean_done" = "%lld file(s) moved to the Trash.";
 "large_old.cleaning" = "Moving selected files…";
 "large_old.empty.message" = "No files above your size and age filters in the chosen folder.";
@@ -720,7 +740,7 @@
 "security.link_gatekeeper" = "Gatekeeper";
 "security.link_privacy" = "Privacy";
 "security.links_title" = "macOS security configuration";
-"security.no_malware_claim" = "Salman Mac Cleaner does not detect malware. This audit checks permissions, quarantine flags and unsigned background agents — nothing more.";
+"security.no_malware_claim" = "8002CleanUp does not detect malware. This audit checks permissions, quarantine flags and unsigned background agents — nothing more.";
 "security.open_fda" = "Open Full Disk Access Settings";
 "security.quarantine_none" = "No installed application still carries quarantine metadata.";
 "security.quarantine_title" = "Quarantined applications";
@@ -771,7 +791,7 @@
 "startup.self.not_registered" = "Not registered";
 "startup.self.requires_approval" = "Requires approval";
 "startup.self.unknown" = "Unknown";
-"startup.self_status" = "Salman Mac Cleaner login item:";
+"startup.self_status" = "8002CleanUp login item:";
 "status.update_available" = "Update available";
 "tools.card.hint" = "Opens this tool";
 "tools.check_updates" = "Check for Updates";
@@ -803,13 +823,13 @@
 "updater.reason.no_feed" = "Update feed not configured — a signed appcast feed is required before updates are enabled.";
 "updater.reason.unavailable" = "Sparkle is unavailable in this build.";
 "updater.reason.unsigned" = "Development build — this copy is not Developer ID signed, so updates are disabled. Signed releases enable Sparkle updates.";
-"updater.self_title" = "Salman Mac Cleaner Updates";
+"updater.self_title" = "8002CleanUp Updates";
 "updater.state.available" = "Update available: %@";
 "updater.state.checking" = "Checking…";
 "updater.state.unconfigured" = "Updates not configured";
 "updater.state.up_to_date" = "Up to date";
 "updater.third_party_title" = "Third-Party Application Updates";
-"updater.third_party_unavailable" = "Unavailable: no trustworthy update source exists for third-party applications, and Salman Mac Cleaner never invents version data. This module will light up when a reliable source is available.";
+"updater.third_party_unavailable" = "Unavailable: no trustworthy update source exists for third-party applications, and 8002CleanUp never invents version data. This module will light up when a reliable source is available.";
 "validate.failure.identity" = "File identity changed:";
 "validate.failure.missing" = "No longer exists:";
 "validate.failure.ownership" = "Ownership changed:";
@@ -975,7 +995,7 @@
 "health.no_changes" = "Read-only · no cleanup actions";
 "health.completed" = "Health review complete";
 "health.results_title" = "Health review";
-"health.results_read_only" = "A measured snapshot of the signals SalmanMacCleaner can safely inspect.";
+"health.results_read_only" = "A measured snapshot of the signals 8002CleanUp can safely inspect.";
 "health.coverage.complete" = "Coverage: complete for the inspected locations. Full Disk Access was available at check time.";
 "health.coverage.limited" = "Coverage: limited. Some macOS locations were inaccessible; grant Full Disk Access for broader measurements.";
 "results.coverage.limited" = "Limited coverage";

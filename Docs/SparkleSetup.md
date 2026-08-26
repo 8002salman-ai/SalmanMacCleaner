@@ -1,6 +1,6 @@
 # Sparkle 2 Update Setup
 
-Salman Mac Cleaner integrates **Sparkle 2** via Swift Package Manager for the
+8002CleanUp integrates **Sparkle 2** via Swift Package Manager for the
 direct-distribution edition. This document explains exactly how to configure
 production updates, which secrets are required, and what stays disabled until
 they exist.
@@ -15,7 +15,7 @@ they exist.
   `https://raw.githubusercontent.com/8002salman-ai/SalmanMacCleaner/main/Support/appcast.xml`
 - Public EdDSA key (`SUPublicEDKey` in `Info.plist`): placeholder until you
   run the key generation below.
-- Menu command: **Salman Mac Cleaner → Check for Updates…** (⌘U).
+- Menu command: **8002CleanUp → Check for Updates…** (⌘U).
 
 ## Configuration gate
 

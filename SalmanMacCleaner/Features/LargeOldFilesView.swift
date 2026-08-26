@@ -24,6 +24,12 @@ struct LargeOldFilesView: View {
     @State private var scanToken = UUID()
     @State private var minimumSizeMB: Double = 200
     @State private var olderThanDays: Int = 90
+    @State private var sortOption: LargeOldSortOption = .sizeDescending
+    @State private var scanVisited = 0
+    @State private var scanBytes: Int64 = 0
+    @State private var scanElapsed: TimeInterval = 0
+    @State private var scanStartedAt = Date()
+    @State private var heartbeat: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -60,9 +66,16 @@ struct LargeOldFilesView: View {
                     }
                 }
             } else if isScanning {
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
                     ProgressView().controlSize(.large)
                     Text("large_old.scanning")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Text(String(format: NSLocalizedString("large_old.scan_stats", comment: ""),
+                                scanVisited,
+                                FileUtilities.formattedBytes(scanBytes),
+                                Self.formatElapsed(scanElapsed)))
+                        .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
                     Button("common.cancel") {
                         cancelScan()
@@ -96,6 +109,17 @@ struct LargeOldFilesView: View {
                 }
                 .buttonStyle(.borderless)
                 Spacer()
+                Picker("large_old.sort", selection: $sortOption) {
+                    ForEach(LargeOldSortOption.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 200)
+                Button("large_old.scan_again") {
+                    if let folder = chosenFolder { scan(folder) }
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
                 Button("large_old.choose_other") { showPicker = true }
                     .buttonStyle(AuroraSecondaryButtonStyle())
                     .sheet(isPresented: $showPicker) {
@@ -127,7 +151,7 @@ struct LargeOldFilesView: View {
                 )
             } else {
                 SelectionSummaryBar(selectedCount: selection.count, selectedBytes: selectedBytes, previewOnly: appState.settings.dryRun)
-                List(items) { item in
+                List(sortedItems) { item in
                     Toggle(isOn: binding(for: item.id)) {
                         ItemRowLabel(
                             name: item.name,
@@ -207,12 +231,18 @@ struct LargeOldFilesView: View {
 
     private func scan(_ url: URL) {
         scanTask?.cancel()
+        heartbeat?.cancel()
         let token = UUID()
         scanToken = token
         isScanning = true
         scanWasPartial = false
         items = []
         selection = []
+        scanVisited = 0
+        scanBytes = 0
+        scanElapsed = 0
+        scanStartedAt = Date()
+        startHeartbeat(token: token)
         let root = url.path
         let minBytes = Int64(minimumSizeMB * 1_048_576)
         let cutoff = Date().addingTimeInterval(-Double(olderThanDays) * 86_400)
@@ -220,6 +250,7 @@ struct LargeOldFilesView: View {
         let task = Task.detached(priority: .userInitiated) {
             var found: [ScannedItem] = []
             var entriesVisited = 0
+            var bytesFound: Int64 = 0
             let coverage = TraversalIssueCounter()
             let enumerator = FileManager.default.enumerator(
                 at: url,
@@ -236,6 +267,7 @@ struct LargeOldFilesView: View {
                     guard scanToken == token else { return }
                     scanWasPartial = true
                     isScanning = false
+                    stopHeartbeat()
                 }
                 return
             }
@@ -274,13 +306,24 @@ struct LargeOldFilesView: View {
                     device: identity.map { Int32(clamping: Int64($0.0)) } ?? 0,
                     inode: identity.map { UInt64($0.1) } ?? 0
                 ))
+                bytesFound = CleanupAccounting.adding(bytesFound, Int64(size))
+                // Throttled live counters so the UI never floods the main actor.
+                if entriesVisited % 250 == 0 {
+                    await MainActor.run {
+                        guard scanToken == token else { return }
+                        scanVisited = entriesVisited
+                        scanBytes = bytesFound
+                    }
+                }
             }
-            found.sort { $0.size > $1.size }
             let wasCancelled = Task.isCancelled
             await MainActor.run {
                 guard scanToken == token else { return }
                 items = wasCancelled ? [] : Array(found.prefix(800))
                 scanWasPartial = (coverage.count > 0) || wasCancelled
+                scanVisited = entriesVisited
+                scanBytes = bytesFound
+                stopHeartbeat()
                 isScanning = false
                 scanTask = nil
             }
@@ -288,9 +331,34 @@ struct LargeOldFilesView: View {
         scanTask = task
     }
 
+    private func startHeartbeat(token: UUID) {
+        heartbeat = Task { @MainActor in
+            while !Task.isCancelled {
+                guard scanToken == token, isScanning else { return }
+                scanElapsed = Date().timeIntervalSince(scanStartedAt)
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeat?.cancel()
+        heartbeat = nil
+    }
+
+    private var sortedItems: [ScannedItem] {
+        sortOption.sort(items)
+    }
+
+    static func formatElapsed(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        return String(format: "%d:%02d", total / 60, total % 60)
+    }
+
     private func cancelScan() {
         scanTask?.cancel()
         scanTask = nil
+        stopHeartbeat()
         scanToken = UUID()
         isScanning = false
         scanWasPartial = true
@@ -347,5 +415,60 @@ struct LargeOldFilesView: View {
             }
         }
         withExtendedLifetime(task) {}
+    }
+}
+
+/// Sort order for Large & Old Files results. Pure view-state logic so it can
+/// be unit-tested without a live filesystem.
+enum LargeOldSortOption: String, CaseIterable, Identifiable {
+    case sizeDescending
+    case sizeAscending
+    case newestFirst
+    case oldestFirst
+    case name
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .sizeDescending: return "large_old.sort.size_desc"
+        case .sizeAscending: return "large_old.sort.size_asc"
+        case .newestFirst: return "large_old.sort.newest"
+        case .oldestFirst: return "large_old.sort.oldest"
+        case .name: return "large_old.sort.name"
+        }
+    }
+
+    func sort(_ items: [ScannedItem]) -> [ScannedItem] {
+        switch self {
+        case .sizeDescending:
+            return items.sorted { lhs, rhs in
+                if lhs.size != rhs.size { return lhs.size > rhs.size }
+                return lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
+            }
+        case .sizeAscending:
+            return items.sorted { lhs, rhs in
+                if lhs.size != rhs.size { return lhs.size < rhs.size }
+                return lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
+            }
+        case .newestFirst:
+            return items.sorted { lhs, rhs in
+                let l = lhs.modificationDate ?? .distantPast
+                let r = rhs.modificationDate ?? .distantPast
+                if l != r { return l > r }
+                return lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
+            }
+        case .oldestFirst:
+            return items.sorted { lhs, rhs in
+                let l = lhs.modificationDate ?? .distantPast
+                let r = rhs.modificationDate ?? .distantPast
+                if l != r { return l < r }
+                return lhs.path.localizedStandardCompare(rhs.path) == .orderedAscending
+            }
+        case .name:
+            return items.sorted {
+                $0.path.localizedStandardCompare($1.path) == .orderedAscending
+            }
+        }
     }
 }

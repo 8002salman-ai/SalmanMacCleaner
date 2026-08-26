@@ -8,6 +8,7 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct SidebarView: View {
     @EnvironmentObject private var appState: AppState
@@ -17,22 +18,27 @@ struct SidebarView: View {
     var body: some View {
         ZStack {
             sidebarSurface
-            List(selection: selectionBinding) {
-                ForEach(SidebarGroup.allCases) { group in
-                    Section {
-                        ForEach(modules(in: group)) { module in
-                            SidebarRow(module: module, isSelected: appState.module == module)
-                                .tag(module)
+            VStack(spacing: 0) {
+                AppIdentityHeader()
+                    .padding(.horizontal, 14)
+                    .padding(.top, 14)
+                    .padding(.bottom, 4)
+                List(selection: selectionBinding) {
+                    ForEach(SidebarGroup.allCases) { group in
+                        Section {
+                            ForEach(modules(in: group)) { module in
+                                SidebarRow(module: module, isSelected: appState.module == module)
+                                    .tag(module)
+                            }
+                        } header: {
+                            GlassSectionHeader(LocalizedStringKey(group.title))
+                                .padding(.bottom, 2)
                         }
-                    } header: {
-                        GlassSectionHeader(LocalizedStringKey(group.title))
-                            .padding(.bottom, 2)
                     }
                 }
+                .listStyle(.sidebar)
+                .scrollContentBackground(.hidden)
             }
-            .listStyle(.sidebar)
-            .scrollContentBackground(.hidden)
-            .padding(.top, 10)
         }
         .safeAreaInset(edge: .bottom) {
             DryRunBadge()
@@ -141,6 +147,47 @@ struct SidebarRow: View {
             return Color.white.opacity(colorScheme == .dark ? 0.08 : 0.14)
         }
         return .clear
+    }
+}
+
+/// App identity header pinned at the top of the sidebar: product name and a
+/// version badge so the running build is always identifiable, plus a Reduce
+/// Motion / accessibility respect for the subtle glow.
+struct AppIdentityHeader: View {
+    @EnvironmentObject private var accessibility: AccessibilityEnvironment
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .frame(width: 34, height: 34)
+                .shadow(
+                    color: AuroraPalette.electricPurple.opacity(accessibility.reduceMotion ? 0.15 : 0.35),
+                    radius: accessibility.reduceMotion ? 4 : 6,
+                    y: 2
+                )
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(AppIdentity.displayName)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(AuroraPalette.primaryText(colorScheme, increaseContrast: false))
+                    .lineLimit(1)
+                Text(AppIdentity.versionBadge)
+                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 4)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Color.white.opacity(colorScheme == .dark ? 0.08 : 0.18), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(AppIdentity.displayName), \(AppIdentity.versionBadge)"))
     }
 }
 

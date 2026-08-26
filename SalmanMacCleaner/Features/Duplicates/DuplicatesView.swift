@@ -65,13 +65,31 @@ struct DuplicatesView: View {
             if viewModel.isScanning {
                 ProgressView(value: viewModel.progress)
                     .progressViewStyle(.linear)
-                Text(viewModel.detail ?? "")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .tint(AuroraPalette.cyan)
+                HStack(spacing: 10) {
+                    Text(viewModel.detail ?? NSLocalizedString("duplicates.phase.prepare", comment: ""))
+                        .font(.caption.weight(.semibold))
+                    Spacer()
+                    Text(String(format: NSLocalizedString("duplicates.scan_stats", comment: ""),
+                                viewModel.scanStats.filesConsidered,
+                                FileUtilities.formattedBytes(viewModel.scanStats.bytesConsidered),
+                                Self.formatElapsed(viewModel.scanElapsed)))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Button("duplicates.cancel_scan", role: .cancel) {
+                    appState.cancelCurrentScan()
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
             }
 
             if let error = viewModel.errorMessage {
-                PermissionBannerView(message: error, systemImage: "exclamationmark.triangle.fill")
+                HStack(spacing: 12) {
+                    PermissionBannerView(message: error, systemImage: "exclamationmark.triangle.fill")
+                    Button(LocalizedStringKey("common.retry"), action: retryScan)
+                        .buttonStyle(AuroraSecondaryButtonStyle())
+                        .disabled(viewModel.roots.isEmpty || viewModel.isScanning)
+                }
             }
 
             if !viewModel.groups.isEmpty {
@@ -144,6 +162,17 @@ struct DuplicatesView: View {
         }
     }
 
+    private func retryScan() {
+        viewModel.retryScan(settings: appState.settings, activity: appState)
+    }
+
+    static func formatElapsed(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        let minutes = total / 60
+        let remainder = total % 60
+        return String(format: "%d:%02d", minutes, remainder)
+    }
+
     @ViewBuilder
     private func resultsView() -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -169,6 +198,30 @@ struct DuplicatesView: View {
                     message: coverage,
                     systemImage: viewModel.coverageReport?.isPartial == true ? "exclamationmark.triangle.fill" : "checkmark.shield.fill"
                 )
+            }
+
+            HStack(spacing: 10) {
+                Picker("duplicates.sort", selection: $viewModel.sortOption) {
+                    ForEach(DuplicatesSortOption.allCases) { option in
+                        Text(option.title).tag(option)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(maxWidth: 220)
+
+                Spacer()
+
+                Button("duplicates.select_all") {
+                    viewModel.selectAllRemovable()
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.visibleGroups.isEmpty)
+
+                Button("duplicates.deselect_all") {
+                    viewModel.deselectAll()
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.selection.isEmpty)
             }
 
             SelectionSummaryBar(
@@ -200,7 +253,7 @@ struct GroupDisclosureRow: View {
                 Toggle(isOn: binding(for: file.id)) {
                     ItemRowLabel(
                         name: file.name,
-                        detail: file.path,
+                        detail: Self.rowDetail(for: file),
                         size: file.size
                     )
                 }
@@ -211,11 +264,18 @@ struct GroupDisclosureRow: View {
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(.green)
-                    Text(String(format: NSLocalizedString("duplicates.keeper", comment: ""), keeper.name))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(format: NSLocalizedString("duplicates.keeper", comment: ""), keeper.name))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if let date = keeper.modificationDate {
+                            Text(date.formatted(date: .abbreviated, time: .omitted))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
                     Spacer()
                     Text(FileUtilities.formattedBytes(keeper.size))
                         .font(.caption.monospacedDigit())
@@ -249,5 +309,13 @@ struct GroupDisclosureRow: View {
                 if selected { selection.insert(id) } else { selection.remove(id) }
             }
         )
+    }
+
+    /// Exact path plus the measured modification date so the user can tell
+    /// which copy is newest before choosing what to remove.
+    private static func rowDetail(for file: ScannedItem) -> String {
+        guard let date = file.modificationDate else { return file.path }
+        let formatted = date.formatted(date: .abbreviated, time: .omitted)
+        return String(format: NSLocalizedString("duplicates.row_detail", comment: ""), formatted, file.path)
     }
 }

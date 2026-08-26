@@ -77,13 +77,13 @@ struct StatusAreaView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(displayVersion)
+            Text(AppIdentity.versionBadge)
                 .font(.callout.monospacedDigit().weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 5)
                 .background(.thinMaterial, in: Capsule())
-                .help("SalmanMacCleaner version \(displayVersion)")
+                .help(AppIdentity.helpText)
 
             StatusPill(LocalizedStringKey(permissionService.snapshot.fullDiskAccess.title),
                        kind: pillKind)
@@ -104,12 +104,6 @@ struct StatusAreaView: View {
         .onReceive(SparkleUpdaterController.shared.$availableVersion) { version in
             updateAvailable = version != nil
         }
-    }
-
-    private var displayVersion: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-        let build = (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String) ?? "-"
-        return "v\(version) (\(build))"
     }
 
     private var pillKind: StatusPill.Kind {

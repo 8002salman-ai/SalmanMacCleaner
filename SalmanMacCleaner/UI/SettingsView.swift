@@ -166,9 +166,9 @@ struct SettingsView: View {
                     .resizable()
                     .frame(width: 64, height: 64)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("app.name").font(.title3.weight(.bold))
-                    Text(SparkleUpdaterController.currentVersion)
-                        .font(.callout)
+                    Text(AppIdentity.displayName).font(.title3.weight(.bold))
+                    Text(AppIdentity.versionBadge)
+                        .font(.callout.monospacedDigit())
                         .foregroundStyle(.secondary)
                     Text("about.architecture")
                         .font(.callout)

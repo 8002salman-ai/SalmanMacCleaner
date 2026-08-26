@@ -1,6 +1,6 @@
 # Distribution Architecture
 
-Salman Mac Cleaner is designed as a **direct-distribution** macOS utility with
+8002CleanUp is designed as a **direct-distribution** macOS utility with
 two possible editions. The repository implements the direct edition as the
 primary target.
 

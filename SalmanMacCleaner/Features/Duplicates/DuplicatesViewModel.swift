@@ -19,13 +19,20 @@ final class DuplicatesViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var searchText = ""
     @Published var selection: Set<UUID> = []
+    @Published var sortOption: DuplicatesSortOption = .reclaimable
     @Published var showConfirmation = false
     @Published var cleanupReport: CleanupResult?
     @Published var folderPickerPresented = false
     @Published var hasRun = false
     @Published var coverageReport: DuplicateScanReport?
+    /// Live counters (files/bytes considered) reported while scanning.
+    @Published var scanStats = DuplicateScanStats()
+    /// Elapsed wall time of the current scan, ticked ~2×/second.
+    @Published var scanElapsed: TimeInterval = 0
 
     private var scanToken = UUID()
+    private var heartbeat: Task<Void, Never>?
+    private var scanStartedAt: Date?
 
     init() {
         // Duplicate detection is useful for regenerable stores by default, not
@@ -41,12 +48,26 @@ final class DuplicatesViewModel: ObservableObject {
     }
 
     var visibleGroups: [DuplicateGroup] {
+        let filtered: [DuplicateGroup]
         if searchText.isEmpty {
-            return groups
+            filtered = groups
+        } else {
+            filtered = groups.filter { group in
+                group.files.contains { $0.path.localizedCaseInsensitiveContains(searchText) }
+            }
         }
-        return groups.filter { group in
-            group.files.contains { $0.path.localizedCaseInsensitiveContains(searchText) }
-        }
+        return sortOption.sort(filtered)
+    }
+
+    /// Select every removable copy across all groups (the keeper is never
+    /// included). Used by "Select All".
+    func selectAllRemovable() {
+        selection = Set(groups.flatMap { $0.removableFiles.map(\.id) })
+    }
+
+    /// Clear every selection after a result set or filter change.
+    func deselectAll() {
+        selection = []
     }
 
     var totalReclaimable: Int64 {
@@ -58,11 +79,13 @@ final class DuplicatesViewModel: ObservableObject {
         if report.isPartial {
             return String(format: NSLocalizedString("duplicates.coverage.partial", comment: ""),
                           report.filesConsidered,
+                          FileUtilities.formattedBytes(report.bytesConsidered),
                           report.directoriesVisited,
                           report.deniedPaths)
         }
         return String(format: NSLocalizedString("duplicates.coverage.complete", comment: ""),
                       report.filesConsidered,
+                      FileUtilities.formattedBytes(report.bytesConsidered),
                       report.directoriesVisited)
     }
 
@@ -126,11 +149,14 @@ final class DuplicatesViewModel: ObservableObject {
     }
 
     func reset() {
+        stopHeartbeat()
         roots = []
         groups = []
         selection = []
         hasRun = false
         coverageReport = nil
+        scanStats = DuplicateScanStats()
+        scanElapsed = 0
         progress = 0
     }
 
@@ -148,6 +174,9 @@ final class DuplicatesViewModel: ObservableObject {
             cleanupReport = nil
         }
         coverageReport = nil
+        scanStats = DuplicateScanStats()
+        scanElapsed = 0
+        scanStartedAt = Date()
 
         let rootsSnapshot = roots
         let depth = settings.maxScanDepth
@@ -167,12 +196,18 @@ final class DuplicatesViewModel: ObservableObject {
                 allowOutsideHome: hasAuthorizedExternalRoot,
                 authorizedRoots: Array(authorizedPaths),
                 progress: progressCallback,
-                isCancelled: isCancelled
+                isCancelled: isCancelled,
+                onStats: { stats in
+                    Task { @MainActor [weak self] in
+                        self?.scanStats = stats
+                    }
+                }
             )
         }
 
         let token = UUID()
         self.scanToken = token
+        startHeartbeat(token: token)
         activity.beginActivity(.scanning(detail: operation.title))
         coordinator.start(operation, onProgress: { [weak self] fraction, detail in
             self?.progress = fraction
@@ -180,11 +215,14 @@ final class DuplicatesViewModel: ObservableObject {
         }, onComplete: { [weak self] outcome in
             FolderAuthorizationsStore.shared.deactivateScopes()
             guard let self, self.scanToken == token else { return }
+            self.stopHeartbeat()
             self.isScanning = false
             self.hasRun = true
             switch outcome {
             case .success(let report):
                 self.coverageReport = report
+                self.scanStats = DuplicateScanStats(filesConsidered: report.filesConsidered,
+                                                    bytesConsidered: report.bytesConsidered)
                 self.groups = report.groups
                 activity.endActivity(message: String(
                     format: NSLocalizedString("duplicates.results.summary", comment: ""),
@@ -200,6 +238,30 @@ final class DuplicatesViewModel: ObservableObject {
                 }
             }
         })
+    }
+
+    /// Retry the last scan (used by the error/partial-coverage affordance).
+    func retryScan(settings: SettingsStore, activity: AppState) {
+        startScan(settings: settings, coordinator: ScanCoordinator.shared, activity: activity)
+    }
+
+    private func startHeartbeat(token: UUID) {
+        heartbeat?.cancel()
+        heartbeat = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                guard self.scanToken == token, self.isScanning else { return }
+                if let started = self.scanStartedAt {
+                    self.scanElapsed = Date().timeIntervalSince(started)
+                }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeat?.cancel()
+        heartbeat = nil
     }
 
     func performCleanup(settings: SettingsStore, history: HistoryStore, activity: AppState) {
@@ -299,5 +361,51 @@ final class DuplicatesViewModel: ObservableObject {
             }
         }
         withExtendedLifetime(task) {}
+    }
+}
+
+/// Sort order for Duplicate Finder results. Pure view-state logic so the
+/// ordering rules can be unit-tested without a live filesystem.
+enum DuplicatesSortOption: String, CaseIterable, Identifiable {
+    case reclaimable
+    case size
+    case copies
+    case path
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .reclaimable: return "duplicates.sort.reclaimable"
+        case .size: return "duplicates.sort.size"
+        case .copies: return "duplicates.sort.copies"
+        case .path: return "duplicates.sort.path"
+        }
+    }
+
+    func sort(_ groups: [DuplicateGroup]) -> [DuplicateGroup] {
+        switch self {
+        case .reclaimable:
+            return groups.sorted { lhs, rhs in
+                if lhs.reclaimableBytes != rhs.reclaimableBytes {
+                    return lhs.reclaimableBytes > rhs.reclaimableBytes
+                }
+                return (lhs.keeper?.path ?? "") < (rhs.keeper?.path ?? "")
+            }
+        case .size:
+            return groups.sorted { lhs, rhs in
+                if lhs.size != rhs.size { return lhs.size > rhs.size }
+                return (lhs.keeper?.path ?? "") < (rhs.keeper?.path ?? "")
+            }
+        case .copies:
+            return groups.sorted { lhs, rhs in
+                if lhs.files.count != rhs.files.count { return lhs.files.count > rhs.files.count }
+                return (lhs.keeper?.path ?? "") < (rhs.keeper?.path ?? "")
+            }
+        case .path:
+            return groups.sorted {
+                ($0.keeper?.path ?? "") < ($1.keeper?.path ?? "")
+            }
+        }
     }
 }

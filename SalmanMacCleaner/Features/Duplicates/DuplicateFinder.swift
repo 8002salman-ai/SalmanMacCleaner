@@ -29,20 +29,35 @@ public enum DuplicateScanError: LocalizedError, Equatable {
     }
 }
 
+/// Cumulative counters reported live while a duplicate scan runs.
+/// Reports are throttled so the UI never floods the main actor.
+public struct DuplicateScanStats: Equatable {
+    public var filesConsidered: Int
+    public var bytesConsidered: Int64
+
+    public init(filesConsidered: Int = 0, bytesConsidered: Int64 = 0) {
+        self.filesConsidered = filesConsidered
+        self.bytesConsidered = bytesConsidered
+    }
+}
+
 public struct DuplicateScanReport: Equatable {
     public var groups: [DuplicateGroup]
     public var filesConsidered: Int
+    public var bytesConsidered: Int64
     public var directoriesVisited: Int
     public var deniedPaths: Int
     public var truncated: Bool
 
     public init(groups: [DuplicateGroup] = [],
                 filesConsidered: Int = 0,
+                bytesConsidered: Int64 = 0,
                 directoriesVisited: Int = 0,
                 deniedPaths: Int = 0,
                 truncated: Bool = false) {
         self.groups = groups
         self.filesConsidered = filesConsidered
+        self.bytesConsidered = bytesConsidered
         self.directoriesVisited = directoriesVisited
         self.deniedPaths = deniedPaths
         self.truncated = truncated
@@ -92,7 +107,8 @@ public enum DuplicateFinder {
         allowOutsideHome: Bool = false,
         authorizedRoots: [String] = [],
         progress: @escaping (Double, String?) -> Void,
-        isCancelled: @escaping () -> Bool
+        isCancelled: @escaping () -> Bool,
+        onStats: ((DuplicateScanStats) -> Void)? = nil
     ) throws -> DuplicateScanReport {
         guard !roots.isEmpty else { throw DuplicateScanError.noRootsSelected }
 
@@ -122,13 +138,18 @@ public enum DuplicateFinder {
                 minimumSize: max(0, minimumSize),
                 allowOutsideHome: rootIsOutsideHome && allowOutsideHome,
                 into: &candidates,
-                isCancelled: isCancelled
+                isCancelled: isCancelled,
+                onStats: onStats
             )
             enumeration.directoriesVisited += stats.directoriesVisited
             enumeration.deniedPaths += stats.deniedPaths
             enumeration.truncated = enumeration.truncated || stats.truncated
             progress(0.2, NSLocalizedString("duplicates.phase.enumerate", comment: ""))
         }
+        onStats?(DuplicateScanStats(
+            filesConsidered: candidates.count,
+            bytesConsidered: candidates.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.size) }
+        ))
 
         // Phase 2: group by exact size.
         var bySize: [Int64: [ScannedItem]] = [:]
@@ -206,10 +227,13 @@ public enum DuplicateFinder {
         }
 
         groups.sort { $0.reclaimableBytes > $1.reclaimableBytes }
+        let totalBytes = candidates.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.size) }
         progress(1, NSLocalizedString("duplicates.phase.done", comment: ""))
+        onStats?(DuplicateScanStats(filesConsidered: candidates.count, bytesConsidered: totalBytes))
         return DuplicateScanReport(
             groups: groups,
             filesConsidered: candidates.count,
+            bytesConsidered: totalBytes,
             directoriesVisited: enumeration.directoriesVisited,
             deniedPaths: enumeration.deniedPaths,
             truncated: enumeration.truncated
@@ -247,7 +271,8 @@ public enum DuplicateFinder {
         minimumSize: Int64,
         allowOutsideHome: Bool,
         into candidates: inout [ScannedItem],
-        isCancelled: @escaping () -> Bool
+        isCancelled: @escaping () -> Bool,
+        onStats: ((DuplicateScanStats) -> Void)? = nil
     ) throws -> EnumerationStats {
         var stack: [(path: String, depth: Int)] = [(root, 0)]
         var stats = EnumerationStats()
@@ -276,7 +301,7 @@ public enum DuplicateFinder {
             guard validated.kind == .directory else { continue }
             guard let contents = try? FileManager.default.contentsOfDirectory(
                 at: URL(fileURLWithPath: validated.canonical, isDirectory: true),
-                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey],
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey, .contentModificationDateKey],
                 options: [.skipsHiddenFiles]
             ) else {
                 stats.deniedPaths += 1
@@ -304,16 +329,25 @@ public enum DuplicateFinder {
                 if validatedChild.kind == .directory {
                     childDirs.append(url)
                 } else if validatedChild.kind == .regularFile {
-                    guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+                    guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
                           let size = values.fileSize,
                           Int64(size) >= minimumSize else { continue }
                     let identity = Crypto.inode(of: validatedChild.canonical)
                     candidates.append(ScannedItem(
                         path: validatedChild.canonical,
                         size: Int64(size),
+                        modificationDate: values.contentModificationDate,
                         device: identity.map { Int32(clamping: Int64($0.0)) } ?? 0,
                         inode: identity.map { UInt64($0.1) } ?? 0
                     ))
+                    // Throttled live counters: never more often than every
+                    // 200 candidates so the UI stays responsive.
+                    if candidates.count % 200 == 0 {
+                        onStats?(DuplicateScanStats(
+                            filesConsidered: candidates.count,
+                            bytesConsidered: candidates.reduce(Int64(0)) { CleanupAccounting.adding($0, $1.size) }
+                        ))
+                    }
                 }
             }
 

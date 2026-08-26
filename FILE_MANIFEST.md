@@ -1,6 +1,6 @@
 # File Manifest
 
-Generated structure of the Salman Mac Cleaner repository.
+Generated structure of the 8002CleanUp repository.
 
 ## Xcode project
 
@@ -18,6 +18,7 @@ Info.plist
 SalmanMacCleaner.entitlements
 SalmanMacCleanerApp.swift
 Core/
+  AppIdentity.swift
   AppState.swift
   CleanupEngine.swift
   Crypto.swift
@@ -124,10 +125,14 @@ UI/
 ## Unit test target — SalmanMacCleanerTests
 
 ```
+AppIdentityTests.swift
 CleanupEngineTests.swift
+CleanupWorkflowRegressionTests.swift
+DeepScanRegressionTests.swift
 DuplicateFinderTests.swift
 EngineTests.swift
 FixtureEndToEndTests.swift
+LargeOldFilesRegressionTests.swift
 PathSafetyTests.swift
 PersistenceAndPlanTests.swift
 ScanLifecycleTests.swift

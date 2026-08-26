@@ -1,6 +1,6 @@
 # Security Policy
 
-Salman Mac Cleaner is built to be the *safest* cleaner on your Mac. This document describes the security model, what the app will never do, and how to report issues.
+8002CleanUp is built to be the *safest* cleaner on your Mac. This document describes the security model, what the app will never do, and how to report issues.
 
 ## Design guarantees
 

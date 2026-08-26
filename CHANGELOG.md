@@ -1,9 +1,37 @@
 # Changelog
 
-All notable changes to Salman Mac Cleaner are documented in this file.
+All notable changes to 8002CleanUp are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.2.0] - 2026-08-26
+
+### Changed
+
+- **Product rename to 8002CleanUp (visible name).** The bundle name,
+  display name, About screen, app menu title (via `CFBundleName`), updater
+  copy, health-check copy, security-audit copy and the version badge all
+  now consistently read **8002CleanUp**. The repository name, Xcode target
+  and bundle identifier are unchanged so Sparkle feeds, saved bookmarks and
+  support paths keep working.
+- Version bumped to **1.2.0 (build 8)** — the next release after the
+  previously installed 1.1.7 (7). A single `AppIdentity` type is now the
+  source of truth for the visible name and `v<version> (<build>)` badge,
+  used by the sidebar header, toolbar badge and About screen.
+- Sidebar now shows an 8002CleanUp identity header (icon, name, version
+  badge) at the top so the running build is always identifiable.
+
+### Fixed
+
+- **Duplicate Finder** now captures and displays the measured modified
+  date for every reported copy (including the keeper), reports the total
+  bytes considered alongside files/directories, and streams live
+  files/bytes counters and elapsed time while scanning with a Cancel
+  button and an explicit Retry action on error or partial coverage.
+- **Large & Old Files** now shows live entries-visited/bytes-found/elapsed
+  progress while scanning, offers a deterministic sort menu (largest,
+  smallest, newest, oldest, name), and a "Scan This Folder" retry action.
 
 ## [1.1.4] - 2026-08-26
 
