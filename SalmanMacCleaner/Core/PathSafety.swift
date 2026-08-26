@@ -371,8 +371,7 @@ public enum PathSafety {
 
     /// True when the path is a macOS application bundle.
     public static func isAppBundle(_ path: String) -> Bool {
-        guard (path as NSString).pathExtension.lowercased() == "app" else { return false }
-        return kind(of: path) == .directory
+        (path as NSString).pathExtension.lowercased() == "app"
     }
 
     // MARK: - Containment

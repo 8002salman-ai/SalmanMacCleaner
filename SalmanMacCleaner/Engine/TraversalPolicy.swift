@@ -113,13 +113,21 @@ public enum TraversalPolicy {
         // Packages are app bundles, frameworks, docs, etc. Never descend
         // unless the user explicitly asks for package-content scanning.
         let isPackage = (try? url.resourceValues(forKeys: [.isPackageKey]).isPackage) ?? false
-        if isPackage && !includePackageContents {
+        // Finder reports every directory ending in `.app` as a package, even
+        // when it is just a cache container such as `com.vendor.app`. Only
+        // treat it as a protected package when it is a real app bundle (the
+        // check below verifies its Contents directory).
+        let isAppExtension = (path as NSString).pathExtension.lowercased() == "app"
+        let hasBundleContents = FileManager.default.fileExists(
+            atPath: (path as NSString).appendingPathComponent("Contents")
+        )
+        if isPackage && !includePackageContents && !(isAppExtension && !hasBundleContents) {
             return .skip(reason: .packageContent)
         }
 
         // App bundles are never descended into by the inventory scanner,
         // even with package-content enabled (bundles are protected).
-        if PathSafety.isAppBundle(path) {
+        if PathSafety.isAppBundle(path) && hasBundleContents {
             return .skip(reason: .packageContent)
         }
 

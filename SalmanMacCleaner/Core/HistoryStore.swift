@@ -122,7 +122,12 @@ public final class HistoryStore: ObservableObject {
     public func exportData(format: ExportFormat) -> Data? {
         switch format {
         case .json:
-            return try? encoder.encode(entries)
+            // Export should be interoperable with a plain JSONDecoder. The
+            // persisted store keeps ISO-8601 dates; the exported format uses
+            // Foundation's portable numeric Date representation.
+            let exportEncoder = JSONEncoder()
+            exportEncoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            return try? exportEncoder.encode(entries)
         case .csv:
             var csv = "id,date,action,category,item_count,bytes,dry_run,root\n"
             let formatter = ISO8601DateFormatter()

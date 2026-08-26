@@ -414,5 +414,9 @@ public enum ScanPolicy {
     /// Whether a volume may be scanned without additional opt-in.
     public static func volumeNeedsOptIn(_ volume: VolumeInfo) -> Bool {
         volume.requiresOptIn
+            || !volume.isLocal
+            || !volume.isInternal
+            || volume.isReadOnly
+            || volume.isRemovable
     }
 }

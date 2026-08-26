@@ -281,6 +281,18 @@ public final class ResultsWorkspaceModel: ObservableObject {
         }
         selection.subtract(moved)
 
+        // Reflect confirmed Trash movement immediately. The index update is
+        // asynchronous and must not leave the results screen showing stale
+        // counts while it completes.
+        if var updated = outcome {
+            let removedBytes = result.movedBytes
+            updated.itemsScanned = max(0, updated.itemsScanned - moved.count)
+            updated.bytesIndexed = max(0, updated.bytesIndexed - removedBytes)
+            updated.safeBytes = max(0, updated.safeBytes - removedBytes)
+            outcome = updated
+            appState?.lastOutcome = updated
+        }
+
         if let scanID = outcome?.scanID {
             Task {
                 await coordinator.indexStore.deleteRecordsAndDescendants(scanID: scanID, paths: Array(moved))
@@ -296,15 +308,6 @@ public final class ResultsWorkspaceModel: ObservableObject {
                         appState?.lastOutcome = updated
                     }
                 }
-            }
-        } else {
-            let removedBytes = result.movedBytes
-            if var updated = outcome {
-                updated.itemsScanned = max(0, updated.itemsScanned - moved.count)
-                updated.bytesIndexed = max(0, updated.bytesIndexed - removedBytes)
-                updated.safeBytes = max(0, updated.safeBytes - removedBytes)
-                outcome = updated
-                appState?.lastOutcome = updated
             }
         }
     }

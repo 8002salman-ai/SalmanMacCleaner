@@ -79,13 +79,15 @@ public enum JunkClassifier {
             return verdict
         }
 
-        // 2. Protected classification (personal folders, credentials, VCS).
-        if let verdict = protectedClassification(record, path: path, name: name) {
+        // 2. REVIEW roots and installers are potentially useful but never
+        // auto-selected. This intentionally precedes personal-folder
+        // protection so a Downloads .dmg is shown for review, not cleanup.
+        if let verdict = reviewClassification(record, path: path, reviewRoots: effectiveReviewRoots, now: now) {
             return verdict
         }
 
-        // 3. REVIEW roots — potentially useful, never auto-selected.
-        if let verdict = reviewClassification(record, path: path, reviewRoots: effectiveReviewRoots, now: now) {
+        // 3. Protected classification (personal folders, credentials, VCS).
+        if let verdict = protectedClassification(record, path: path, name: name) {
             return verdict
         }
 
@@ -250,6 +252,21 @@ public enum JunkClassifier {
             return nil
         }
         let category = cacheCategory(for: path, name: name)
+
+        // A selected cache directory is a container, not evidence that its
+        // contents are currently in use. Keep it review-only so it can never
+        // be auto-selected; CleanupPlanBuilder separately refuses a directory
+        // when a scanned descendant is protected.
+        if record.isDirectory {
+            return JunkVerdict(
+                category: category,
+                safety: .review,
+                reason: String(format: NSLocalizedString("classify.reason.safe_cache", comment: ""), category.title),
+                autoSelectable: false,
+                regenerable: true,
+                sourceRule: "review-cache-directory"
+            )
+        }
         let age = record.modified ?? .distantPast
         let ageDays = now.timeIntervalSince(age) / 86_400
         guard ageDays >= 1 else {

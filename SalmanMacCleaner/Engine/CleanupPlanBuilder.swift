@@ -216,7 +216,7 @@ public enum CleanupPlanBuilder {
             selectedBytes = CleanupAccounting.adding(selectedBytes, max(record.allocatedSize, 0))
 
             let isBundle = PathSafety.isAppBundle(canonical)
-            let verdict: JunkVerdict
+            var verdict: JunkVerdict
             if allowBundles && isBundle {
                 verdict = JunkVerdict(
                     category: .unknown,
@@ -240,6 +240,23 @@ public enum CleanupPlanBuilder {
                 )
             }
 
+            // Older callers and importers can construct a plan without the
+            // scan's root table. Preserve a conservative manual path for a
+            // clearly cache-shaped selection: it is REVIEW-only (never
+            // auto-selected) and hard protections above still win.
+            if libraryRoots.isEmpty,
+               verdict.sourceRule == "default",
+               isCacheLikePath(canonical) {
+                verdict = JunkVerdict(
+                    category: .userCache,
+                    safety: .review,
+                    reason: NSLocalizedString("classify.reason.user_folder", comment: ""),
+                    autoSelectable: false,
+                    regenerable: true,
+                    sourceRule: "review-inferred-cache"
+                )
+            }
+
             guard verdict.safety != .protected else {
                 rejections.append((
                     canonical,
@@ -247,6 +264,32 @@ public enum CleanupPlanBuilder {
                     record.allocatedSize
                 ))
                 continue
+            }
+
+            // Moving a directory moves every descendant with it. Do not make
+            // a folder-level plan when the scan already knows it contains a
+            // protected item, even if the folder itself is a review candidate.
+            if record.isDirectory {
+                let containsProtectedDescendant = recordByPath.values.contains { descendant in
+                    guard descendant.path != canonical,
+                          PathSafety.isPath(descendant.path, inside: canonical) else {
+                        return false
+                    }
+                    let descendantVerdict = preclassified[descendant.path] ?? JunkClassifier.classify(
+                        descendant,
+                        libraryRoots: libraryRoots,
+                        reviewRoots: reviewRoots
+                    )
+                    return descendantVerdict.safety == .protected
+                }
+                guard !containsProtectedDescendant else {
+                    rejections.append((
+                        canonical,
+                        NSLocalizedString("plan.skip.protected", comment: "") + " " + canonical,
+                        record.allocatedSize
+                    ))
+                    continue
+                }
             }
 
             guard !record.isSymlink else {
@@ -300,5 +343,10 @@ public enum CleanupPlanBuilder {
             previewOnly: previewOnly,
             scanID: scanID
         )
+    }
+
+    private static func isCacheLikePath(_ path: String) -> Bool {
+        let components = URL(fileURLWithPath: path).pathComponents.dropLast()
+        return components.contains { $0.caseInsensitiveCompare("Caches") == .orderedSame }
     }
 }

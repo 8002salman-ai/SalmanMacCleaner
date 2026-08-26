@@ -118,9 +118,9 @@ public enum DeveloperCacheCategory: String, CaseIterable, Identifiable, Codable 
         case .pnpm: return [h + "/Library/Caches/pnpm", h + "/.local/share/pnpm/store"]
         case .homebrew: return [h + "/Library/Caches/Homebrew", h + "/.cache/Homebrew"]
         case .macPorts:
-            // Usually root-owned and therefore reported unavailable, never
-            // modified. It remains visible as an audit category.
-            return ["/opt/local/var/macports/distfiles"]
+            // Root-owned MacPorts locations sit under protected system paths.
+            // Keep tool detection, but never expose that path as a candidate.
+            return []
         case .docker:
             // Docker's VM/container data is protected. We intentionally do
             // not inspect ~/.docker because it can contain credentials.

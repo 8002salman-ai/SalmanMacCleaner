@@ -164,11 +164,21 @@ public enum CleanupSafetyValidator {
                 return .failure(.missing(item.path))
             }
             let verdict = JunkClassifier.classify(record, libraryRoots: libraryRoots, reviewRoots: reviewRoots)
-            guard verdict.safety != .protected else {
+            let preservesPlannedCacheReview = libraryRoots.isEmpty
+                && verdict.safety == .protected
+                && item.category == .userCache
+                && item.safety != .protected
+                && isCacheLikePath(validated.canonical)
+            guard verdict.safety != .protected || preservesPlannedCacheReview else {
                 return .failure(.protectedName(item.path))
             }
         }
 
         return .success(item)
+    }
+
+    private static func isCacheLikePath(_ path: String) -> Bool {
+        let components = URL(fileURLWithPath: path).pathComponents.dropLast()
+        return components.contains { $0.caseInsensitiveCompare("Caches") == .orderedSame }
     }
 }

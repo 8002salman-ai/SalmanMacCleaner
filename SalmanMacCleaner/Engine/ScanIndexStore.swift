@@ -417,12 +417,12 @@ public actor ScanIndexStore {
         return statement.columnInt(0)
     }
 
-    /// Duplicate candidates: regular files ≥ 1 KiB, biggest first, capped.
+    /// Duplicate candidates: regular files, biggest first, capped.
     public func duplicateCandidates(scanID: Int64, limit: Int) -> [ScannedItem] {
         guard let statement = try? db.prepare(
             """
             SELECT path, logical_size, allocated_size, modified, device, inode FROM records
-            WHERE scan_id=? AND is_directory=0 AND logical_size>=1024
+            WHERE scan_id=? AND is_directory=0 AND logical_size>=0
             ORDER BY logical_size DESC LIMIT ?;
             """
         ) else { return [] }

@@ -83,8 +83,9 @@ final class FixtureEndToEndTests: XCTestCase {
             XCTAssertEqual(JunkClassifier.classify(protectedRecord, libraryRoots: libraryRoots).safety, .protected)
         }
 
-        // 5. Build the plan from an explicit selection (both cache files).
-        let selected = [cacheRecord!, records.first { $0.path.hasSuffix("other.cache") }!].map {
+        // 5. Build the plan from one explicit cache selection. The other
+        // cache file remains our proof that unselected files are untouched.
+        let selected = [cacheRecord!].map {
             ScannedItem(path: $0.path, size: $0.logicalSize)
         }
         let plan = CleanupPlanBuilder.build(
@@ -95,11 +96,11 @@ final class FixtureEndToEndTests: XCTestCase {
             scanID: nil,
             libraryRoots: libraryRoots
         )
-        XCTAssertEqual(plan.items.count, 2)
+        XCTAssertEqual(plan.items.count, 1)
 
         // 6. Preview: nothing moves.
         let preview = await CleanupExecutor.shared.execute(plan: plan, progress: { _, _ in }, isCancelled: { false })
-        XCTAssertEqual(preview.previewed.count, 2)
+        XCTAssertEqual(preview.previewed.count, 1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: selectedFile.path))
         XCTAssertTrue(FileManager.default.fileExists(atPath: unselectedFile.path))
 
