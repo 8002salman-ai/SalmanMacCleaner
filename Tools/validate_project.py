@@ -116,7 +116,7 @@ def main() -> int:
     check("PBXNativeTarget" in pbx and pbx.count("isa = PBXNativeTarget") >= 2, "two native targets present", "native targets missing")
     check("MACOSX_DEPLOYMENT_TARGET = 13.0" in pbx, "macOS 13.0 deployment target", "deployment target not 13.0")
     check("SWIFT_VERSION = 5.9" in pbx, "Swift 5.9 language version", "Swift version not 5.9")
-    check("ENABLE_APP_SANDBOX = YES" in pbx, "app sandbox enabled", "app sandbox not enabled")
+    check("ENABLE_APP_SANDBOX = YES" not in pbx, "app sandbox disabled for Full Disk Access build", "app sandbox still enabled")
 
     # 2. Project references resolve to real, non-empty files
     print("\n[2] Project references")
