@@ -16,6 +16,22 @@ struct DuplicatesView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Button {
+                    appState.module = .smartCare
+                } label: {
+                    Label("Back to Smart Care", systemImage: "chevron.left")
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
+                .help("Return to the Smart Care dashboard")
+
+                Text("Duplicates")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 0)
+            }
+
             SafetyNoteView(text: "duplicates.safety_note")
 
             HStack(spacing: 12) {
