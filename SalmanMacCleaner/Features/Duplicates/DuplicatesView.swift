@@ -95,6 +95,7 @@ struct DuplicatesView: View {
             if !viewModel.groups.isEmpty {
                 resultsView()
             } else if !viewModel.isScanning && viewModel.hasRun && viewModel.roots.isEmpty == false {
+                // Scan has completed with coverage data but no groups found
                 VStack(spacing: 12) {
                     if let coverage = viewModel.coverageSummary,
                        viewModel.coverageReport?.isPartial == true {
@@ -107,6 +108,60 @@ struct DuplicatesView: View {
                             ? "duplicates.coverage.partial_empty"
                             : "duplicates.empty.message"
                     )
+                }
+            } else if !viewModel.isScanning && !viewModel.hasRun && viewModel.roots.isEmpty == false {
+                // Idle state: default roots exist but no scan has been run yet
+                VStack(spacing: 20) {
+                    EmptyStateView(
+                        systemImage: "folder.badge.plus",
+                        title: "duplicates.prompt.title",
+                        message: "duplicates.prompt.message"
+                    )
+                    HStack(spacing: 12) {
+                        Button {
+                            viewModel.folderPickerPresented = true
+                        } label: {
+                            Label("duplicates.choose_folder", systemImage: "folder.badge.plus")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .help(Text("duplicates.choose_folder.help"))
+                        Button {
+                            folderStore.presentFolderPicker { url in
+                                viewModel.addAuthorizedRoot(url)
+                            }
+                        } label: {
+                            Label("duplicates.choose_external", systemImage: "externaldrive.badge.plus")
+                        }
+                        .buttonStyle(.borderless)
+                        .help(Text("duplicates.choose_external.help"))
+
+                        if !viewModel.roots.isEmpty {
+                            Text(viewModel.roots.map(\.path).joined(separator: ", "))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Button("common.clear", role: .destructive) {
+                                viewModel.reset()
+                            }
+                            .buttonStyle(.borderless)
+                        }
+
+                        Spacer()
+
+                        Button {
+                            viewModel.startScan(settings: appState.settings, coordinator: ScanCoordinator.shared, activity: appState)
+                        } label: {
+                            if viewModel.isScanning {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Label("duplicates.scan", systemImage: "doc.on.doc")
+                            }
+                        }
+                        .disabled(viewModel.roots.isEmpty || viewModel.isScanning)
+                    }
+                    .padding(.top, 8)
                 }
             } else if viewModel.roots.isEmpty {
                 EmptyStateView(
