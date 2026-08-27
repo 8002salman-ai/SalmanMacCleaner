@@ -43,6 +43,22 @@ struct StartupItemsView: View {
 
     private var workspace: some View {
         VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Button {
+                    appState.module = .smartCare
+                } label: {
+                    Label("Back to Smart Care", systemImage: "chevron.left")
+                }
+                .buttonStyle(AuroraSecondaryButtonStyle())
+                .help("Return to the Smart Care dashboard")
+
+                Text("Startup & Background Items")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+
+                Spacer(minLength: 0)
+            }
+
             PermissionBannerView(
                 message: StartupManager.readOnlyExplanation,
                 systemImage: "eye.slash"
